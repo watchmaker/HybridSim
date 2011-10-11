@@ -21,7 +21,8 @@ namespace HybridSim
 		~HybridSystem();
 		void update();
 		bool addTransaction(bool isWrite, uint64_t addr);
-		bool addTransaction(DRAMSim::Transaction &trans);
+		bool addTransaction(Transaction &trans);
+		void addPrefetch(uint64_t flush_addr, uint64_t prefetch_addr);
 		bool WillAcceptTransaction();
 		/*void RegisterCallbacks(
 				TransactionCompleteCB *readDone,
@@ -51,13 +52,9 @@ namespace HybridSim
 		void restoreCacheTable();
 		void saveCacheTable();
 
-		// Functions that schedule pending operations (second part to these operations is in the callbacks).
-//		void VictimRead(uint64_t flash_addr, uint64_t victim_cache_addr, uint64_t victim_tag, TransactionType type);
-//		void VictimWrite(uint64_t flash_addr, uint64_t victim_cache_addr, uint64_t victim_tag);
-//		void LineRead(uint64_t flash_addr, TransactionType type); 
 
 		// Helper functions
-		void ProcessTransaction(DRAMSim::Transaction &trans);
+		void ProcessTransaction(Transaction &trans);
 
 		void VictimRead(Pending p);
 		void VictimReadFinish(uint64_t addr, Pending p);
@@ -75,6 +72,8 @@ namespace HybridSim
 		void CacheWrite(uint64_t orig_addr, uint64_t flash_addr, uint64_t cache_addr);
 		void CacheWriteFinish(uint64_t orig_addr, uint64_t flash_addr, uint64_t cache_addr, bool callback_sent);
 
+		void Flush(uint64_t cache_addr);
+
 		// Testing function
 		bool is_hit(uint64_t address);
 		uint64_t get_hit();
@@ -89,13 +88,7 @@ namespace HybridSim
 
 		DRAMSim::MemorySystem *dram;
 
-#if FDSIM
-		FDSim::FlashDIMM *flash;
-#elif NVDSIM
 		NVDSim::NVDIMM *flash;
-#else
-		DRAMSim::MemorySystem *flash;
-#endif
 
 		unordered_map<uint64_t, cache_line> cache;
 
@@ -109,7 +102,7 @@ namespace HybridSim
 		bool check_queue; // If there is nothing to do, don't check the queue until the next event occurs that will make new work.
 
 		uint64_t delay_counter; // Used to stall the controller while it is "doing work".
-		DRAMSim::Transaction active_transaction; // Used to hold the transaction waiting for SRAM.
+		Transaction active_transaction; // Used to hold the transaction waiting for SRAM.
 		bool active_transaction_flag; // Indicates that a transaction is waiting for SRAM.
 
 		int64_t pending_count;
@@ -119,16 +112,27 @@ namespace HybridSim
 		uint64_t pending_sets_max;
 		uint64_t pending_pages_max;
 		uint64_t trans_queue_max;
+		uint64_t trans_queue_size;
 
-		list<DRAMSim::Transaction> trans_queue; // Entry queue for the cache controller.
-		list<DRAMSim::Transaction> dram_queue; // Buffer to wait for DRAM
-		list<DRAMSim::Transaction> flash_queue; // Buffer to wait for Flash
+		list<Transaction> trans_queue; // Entry queue for the cache controller.
+		list<Transaction> dram_queue; // Buffer to wait for DRAM
+		list<Transaction> flash_queue; // Buffer to wait for Flash
 
 		// Logger is used to store HybridSim-specific logging events.
 		Logger log;
 
+		// Prefetch data stores the prefetch sets from the prefetch file.
+		// This is stored as a map of lists. It could be stored more compactly as an array of pointers to pointers,
+		// but I chose not to since random access is not needed and this makes the code simpler.
+		// If space becomes a problem, I'm just going to switch this to loading the data from a file per set at runtime.
+		unordered_map<uint64_t, list<uint64_t>> prefetch_access_number;
+		unordered_map<uint64_t, list<uint64_t>> prefetch_flush_addr;
+		unordered_map<uint64_t, list<uint64_t>> prefetch_new_addr;
+		unordered_map<uint64_t, uint64_t> prefetch_counter;
+
 		ofstream debug_victim;
 		ofstream debug_nvdimm_trace;
+		ofstream debug_full_trace;
 
 	};
 
