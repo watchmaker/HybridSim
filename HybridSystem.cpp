@@ -1285,7 +1285,7 @@ namespace HybridSim {
 	void HybridSystem::reportPower()
 	{
 		// Forward this call to NVDIMM to process.
-		flash->saveStats();
+//		flash->saveStats();
 	}
 
 
