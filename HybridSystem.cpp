@@ -1300,7 +1300,9 @@ namespace HybridSim {
 		// Print out the log file.
 		if (ENABLE_LOGGER)
 			log.print();
-			flash->saveStats();
+		
+		// Tell NVDIMM to print logs now
+		flash->saveStats();
 	}
 
 	list<uint64_t> HybridSystem::get_valid_pages()
