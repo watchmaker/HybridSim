@@ -1,3 +1,33 @@
+/*********************************************************************************
+* Copyright (c) 2010-2011, 
+* Jim Stevens, Paul Tschirhart, Ishwar Singh Bhati, Mu-Tien Chang, Peter Enns, 
+* Elliott Cooper-Balis, Paul Rosenfeld, Bruce Jacob
+* University of Maryland
+* Contact: jims [at] cs [dot] umd [dot] edu
+* All rights reserved.
+*
+* Redistribution and use in source and binary forms, with or without
+* modification, are permitted provided that the following conditions are met:
+*
+* * Redistributions of source code must retain the above copyright notice,
+* this list of conditions and the following disclaimer.
+*
+* * Redistributions in binary form must reproduce the above copyright notice,
+* this list of conditions and the following disclaimer in the documentation
+* and/or other materials provided with the distribution.
+*
+* THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+* ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+* WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+* DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+* FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+* DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+* SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+* CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+* OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+* OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*********************************************************************************/
+
 #ifndef HYBRIDSIM_LOGGER_H
 #define HYBRIDSIM_LOGGER_H
 
@@ -6,7 +36,6 @@
 
 #include "config.h"
 
-//test
 
 namespace HybridSim
 {
@@ -53,6 +82,9 @@ namespace HybridSim
 		uint64_t flash_idle_counter;
 		uint64_t dram_idle_counter;
 
+		uint64_t num_mmio_dropped;
+		uint64_t num_mmio_remapped;
+
 		unordered_map<uint64_t, uint64_t> pages_used; // maps page_addr to num_accesses
 
 		// Epoch state (reset at the beginning of each epoch)
@@ -90,6 +122,9 @@ namespace HybridSim
 		uint64_t cur_idle_counter;
 		uint64_t cur_flash_idle_counter;
 		uint64_t cur_dram_idle_counter;
+
+		uint64_t cur_num_mmio_dropped;
+		uint64_t cur_num_mmio_remapped;
 
 		unordered_map<uint64_t, uint64_t> cur_pages_used; // maps page_addr to num_accesses
 
@@ -177,6 +212,8 @@ namespace HybridSim
 
 		void access_miss(uint64_t missed_page, uint64_t victim_page, uint64_t cache_set, uint64_t cache_page, bool dirty, bool valid);
 
+		void mmio_dropped();
+		void mmio_remapped();
 
 		void print();
 

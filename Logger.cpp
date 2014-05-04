@@ -1,3 +1,33 @@
+/*********************************************************************************
+* Copyright (c) 2010-2011, 
+* Jim Stevens, Paul Tschirhart, Ishwar Singh Bhati, Mu-Tien Chang, Peter Enns, 
+* Elliott Cooper-Balis, Paul Rosenfeld, Bruce Jacob
+* University of Maryland
+* Contact: jims [at] cs [dot] umd [dot] edu
+* All rights reserved.
+*
+* Redistribution and use in source and binary forms, with or without
+* modification, are permitted provided that the following conditions are met:
+*
+* * Redistributions of source code must retain the above copyright notice,
+* this list of conditions and the following disclaimer.
+*
+* * Redistributions in binary form must reproduce the above copyright notice,
+* this list of conditions and the following disclaimer in the documentation
+* and/or other materials provided with the distribution.
+*
+* THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+* ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+* WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+* DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+* FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+* DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+* SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+* CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+* OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+* OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*********************************************************************************/
+
 #include "Logger.h"
 
 using namespace std;
@@ -49,6 +79,9 @@ namespace HybridSim
 		flash_idle_counter = 0;
 		dram_idle_counter = 0;
 
+		num_mmio_dropped = 0;
+		num_mmio_remapped = 0;
+
 
 		// Init the latency histogram.
 		for (uint64_t i = 0; i <= HISTOGRAM_MAX; i += HISTOGRAM_BIN)
@@ -71,7 +104,7 @@ namespace HybridSim
 			debug.open("debug.log", ios_base::out | ios_base::trunc);
 			if (!debug.is_open())
 			{
-				cout << "ERROR: HybridSim Logger debug file failed to open.\n";
+				cerr << "ERROR: HybridSim Logger debug file failed to open.\n";
 				abort();
 			}
 		}
@@ -216,7 +249,7 @@ namespace HybridSim
 			cur_max_queue_length = queue_length;
 		cur_sum_queue_length += queue_length;
 
-		//cout << "access_queue length = " << access_queue.size() << "; queue_length = " << queue_length << ";\n";
+		//cerr << "access_queue length = " << access_queue.size() << "; queue_length = " << queue_length << ";\n";
 
 		// Update idle counters.
 		if (idle)
@@ -238,20 +271,6 @@ namespace HybridSim
 		}
 	}
 
-
-//	void Logger::access_cache(uint64_t addr, bool hit)
-//	{
-//		if (access_map.count(addr) == 0)
-//		{
-//			cerr << "ERROR: Logger.access_cache() called with address not in access_map. address=" << hex << addr << "\n" << dec;
-//			abort();
-//		}
-//
-//		AccessMapEntry a = access_map[addr];
-//		a.hit = hit;
-//		access_map[addr] = a;
-//
-//	}
 
 	void Logger::access_page(uint64_t page_addr)
 	{
@@ -298,6 +317,18 @@ namespace HybridSim
 		MissedPageEntry m(currentClockCycle, missed_page, victim_page, cache_set, cache_page, dirty, valid);
 		
 		missed_page_list.push_back(m);
+	}
+
+	void Logger::mmio_dropped()
+	{
+		num_mmio_dropped++;
+		cur_num_mmio_dropped++;
+	}
+
+	void Logger::mmio_remapped()
+	{
+		num_mmio_remapped++;
+		cur_num_mmio_remapped++;
 	}
 
 
@@ -394,7 +425,6 @@ namespace HybridSim
 	void Logger::read_latency(uint64_t cycles)
 	{
 		this->latency(cycles);
-		//average_read_latency = compute_running_average(average_read_latency, num_reads, cycles);
 		sum_read_latency += cycles;
 
 		cur_sum_read_latency += cycles;
@@ -517,7 +547,7 @@ namespace HybridSim
 			savefile.open("hybridsim_epoch.log", ios_base::out | ios_base::trunc);
 			if (!savefile.is_open())
 			{
-				cout << "ERROR: HybridSim Logger epoch output file failed to open.\n";
+				cerr << "ERROR: HybridSim Logger epoch output file failed to open.\n";
 				abort();
 			}
 
@@ -534,7 +564,7 @@ namespace HybridSim
 			savefile.open("hybridsim_epoch.log", ios_base::out | ios_base::app);
 			if (!savefile.is_open())
 			{
-				cout << "ERROR: HybridSim Logger epoch output file failed to open.\n";
+				cerr << "ERROR: HybridSim Logger epoch output file failed to open.\n";
 				abort();
 			}
 
@@ -569,6 +599,8 @@ namespace HybridSim
 			savefile << "flash idle percentage: " << this->divide(cur_flash_idle_counter, EPOCH_LENGTH) << "\n";
 			savefile << "dram idle counter: " << cur_dram_idle_counter << "\n";
 			savefile << "dram idle percentage: " << this->divide(cur_dram_idle_counter, EPOCH_LENGTH) << "\n";
+			savefile << "MMIO Accesses Dropped: " << cur_num_mmio_dropped << "\n";
+			savefile << "MMIO Accesses Remapped: " << cur_num_mmio_remapped << "\n";
 			savefile << "\n";
 
 			savefile << "reads: " << cur_num_reads << "\n";
@@ -663,6 +695,9 @@ namespace HybridSim
 		cur_flash_idle_counter = 0;
 		cur_dram_idle_counter = 0;
 
+		cur_num_mmio_dropped = 0;
+		cur_num_mmio_remapped = 0;
+
 		// Clear cur_pages_used
 		cur_pages_used.clear();
 	}
@@ -673,7 +708,7 @@ namespace HybridSim
 		savefile.open("hybridsim.log", ios_base::out | ios_base::trunc);
 		if (!savefile.is_open())
 		{
-			cout << "ERROR: HybridSim Logger output file failed to open.\n";
+			cerr << "ERROR: HybridSim Logger output file failed to open.\n";
 			abort();
 		}
 
@@ -704,6 +739,8 @@ namespace HybridSim
 		savefile << "flash idle percentage: " << this->divide(flash_idle_counter, currentClockCycle) << "\n";
 		savefile << "dram idle counter: " << dram_idle_counter << "\n";
 		savefile << "dram idle percentage: " << this->divide(dram_idle_counter, currentClockCycle) << "\n";
+		savefile << "MMIO Accesses Dropped: " << num_mmio_dropped << "\n";
+		savefile << "MMIO Accesses Remapped: " << num_mmio_remapped << "\n";
 		savefile << "\n";
 
 		savefile << "reads: " << num_reads << "\n";

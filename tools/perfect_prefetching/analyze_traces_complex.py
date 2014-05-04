@@ -1,10 +1,8 @@
-# This tool generates prefetch data from a HybridSim format trace.
+# This tool generates a very detailed analysis of prefetch data from a HybridSim format trace.
+# THIS IS NOT A VALID PREFETCH DATA FORMAT. IT IS SIMPLY MEANT FOR STUDY.
 
 
 import sys
-
-ADJUSTMENT = 400 	# Set the adjustment to prevent premature evictions in non-deterministic runs (e.g. marss)
-					# If fully deterministic, set this to 0.
 
 SET_SIZE = 64
 PAGE_SIZE = 4096
@@ -65,7 +63,7 @@ def process_tracefile(filename):
 
 
 		# Check for a hit.
-		set_pages = [i for (i,j) in cache[set_index]]
+		set_pages = [i for (i,j,k) in cache[set_index]]
 		if set_pages.count(page) == 1:
 			# We hit.
 
@@ -79,17 +77,17 @@ def process_tracefile(filename):
 			if len(cache[set_index]) == SET_SIZE:
 				# Evict the last thing in the cache (index 63).
 				evicted = cache[set_index].pop(63)
-				(evicted_page, access_number) = evicted
+				(evicted_page, access_number, old_cycle) = evicted
 
 				# Update the prefetch list.
-				prefetch[set_index].append((access_number, evicted_page, page))
+				prefetch[set_index].append((access_number, evicted_page, page, cnt[set_index], old_cycle, cycle))
 
 			else:
 				# The cache set isn't full yet, so just put this at the front of the list and do not evict anything.
 				init[set_index].append(page)
 			
 		# Insert the new entry at the beginning of the list (for LRU).
-		cache[set_index].insert(0, (page, cnt[set_index]))
+		cache[set_index].insert(0, (page, cnt[set_index], cycle))
 
 
 		# Increment the counter for the current set.
@@ -100,18 +98,31 @@ def process_tracefile(filename):
 			print counter
 
 	# Done. Now write this to a file.
+	min_diff = 100000000000 # Just start with a large number
+	min_access_diff = 100000000000 # Just start with a large number
 	outFile = open('prefetch_data.txt', 'w')
 	outFile.write('NUM_SETS '+str(NUM_SETS)+'\n\n\n')
 	for i in range(NUM_SETS):
 		outFile.write('SET '+str(i)+' '+str(len(prefetch[i]))+'\n')
 	#	outFile.write(str(prefetch[i])+'\n\n')
 		for j in range(len(prefetch[i])):
-			access_number = str(prefetch[i][j][0]+ADJUSTMENT)
+			access_number = str(prefetch[i][j][0])
 			evicted_page = str(prefetch[i][j][1])
 			prefetch_page = str(prefetch[i][j][2])
-			outFile.write(access_number+' '+evicted_page+' '+prefetch_page+'\n');
+			new_access_number = str(prefetch[i][j][3])
+			old_cycle = str(prefetch[i][j][4])
+			new_cycle = str(prefetch[i][j][5])
+			cycle_diff = int(new_cycle) - int(old_cycle)
+			access_diff = int(new_access_number) - int(access_number)
+			if cycle_diff < min_diff:
+				min_diff = cycle_diff
+			if access_diff < min_access_diff:
+				min_access_diff = access_diff
+			outFile.write('accesses:('+access_number+', '+new_access_number+') pages:('+evicted_page+', '+prefetch_page+') cycles:('+old_cycle+', '+new_cycle+') diff: '+str(cycle_diff)+'\n');
 		outFile.write('\n\n')
 	outFile.close()
+	print 'min_diff:',min_diff
+	print 'min_access_diff:',min_access_diff
 
 
 	# Save cache state table.

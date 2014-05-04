@@ -1,9 +1,50 @@
+/*********************************************************************************
+* Copyright (c) 2010-2011, 
+* Jim Stevens, Paul Tschirhart, Ishwar Singh Bhati, Mu-Tien Chang, Peter Enns, 
+* Elliott Cooper-Balis, Paul Rosenfeld, Bruce Jacob
+* University of Maryland
+* Contact: jims [at] cs [dot] umd [dot] edu
+* All rights reserved.
+*
+* Redistribution and use in source and binary forms, with or without
+* modification, are permitted provided that the following conditions are met:
+*
+* * Redistributions of source code must retain the above copyright notice,
+* this list of conditions and the following disclaimer.
+*
+* * Redistributions in binary form must reproduce the above copyright notice,
+* this list of conditions and the following disclaimer in the documentation
+* and/or other materials provided with the distribution.
+*
+* THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+* ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+* WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+* DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+* FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+* DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+* SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+* CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+* OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+* OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*********************************************************************************/
+
 #ifndef HYBRIDSYSTEM_CONFIG_H
 #define HYBRIDSYSTEM_CONFIG_H
 
 // Temporary prefetch flags.
-#define ENABLE_PREFETCHING 0
+#define ENABLE_PERFECT_PREFETCHING 0
 #define PREFETCH_FILE "traces/prefetch_data.txt"
+
+#define SEQUENTIAL_PREFETCHING_WINDOW 0
+
+// Stream Buffer Setup.
+#define ENABLE_STREAM_BUFFER 1
+#define ONE_MISS_TABLE_SIZE 10
+#define NUM_STREAM_BUFFERS 10
+#define STREAM_BUFFER_LENGTH 4
+#define DEBUG_STREAM_BUFFER 0
+#define DEBUG_STREAM_BUFFER_HIT 0 // This generates a lot of stuff.
+
 
 // Debug flags.
 
@@ -23,9 +64,55 @@
 #define DEBUG_FULL_TRACE 0
 
 
+// Map the first CACHE_PAGES of the NVDIMM address space.
+// This is the initial state of the hybrid memory on boot.
+// This will be overridden if ENABLE_RESTORE is on in the ini file, so leaving this
+// on all of the time is harmless. Valid options are 0 or 1.
+#define PREFILL_CACHE 1
+
+// If PREFILL_CACHE is on, specify whether the initialized pages should be
+// clean or dirty. Valid options are 0 or 1.
+#define PREFILL_CACHE_DIRTY 0
+
+
+// In Intel processors, the 3.5-4.0 GB range of addresses is reserved for MMIO. If the
+// input stream is not filtered and remapped, then memory accesses that should not be
+// simulated will come into HybridSim. This option drops all accesses in that range
+// and subtracts 0.5 GB from all addresses above 4.0 GB.
+// With MARSSx86 or traces generated from MARSSx86, this option should be on.
+#define REMAP_MMIO 1
+
+// Constants for REMAP_MMIO
+const uint64_t HALFGB = 536870912; // 1024^3 / 2
+const uint64_t THREEPOINTFIVEGB = 3758096384; // 1024^3 * 3.5
+const uint64_t FOURGB = 4294967296; // 1024^3 * 4
+
+
 // SINGLE_WORD only sends one transaction to the memories per page instead of PAGE_SIZE/BURST_SIZE
 // This is an old feature that may not work.
 #define SINGLE_WORD 0
+
+// OVERRIDE_DRAM_SIZE is used to make the dram_size parameter passed to DRAM different than the computed
+// size needed by HybridSim (CACHE_PAGES * PAGE_SIZE) >> 20. 
+// If it is 0, it is ignored.
+#define OVERRIDE_DRAM_SIZE 0
+
+
+// RESTORE_CLEAN is used to simulate a checkpoint of the memory system upon restoring the state.
+// Essentially, all pages in the DRAM cache are reverted to clean.
+#define RESTORE_CLEAN 0
+
+
+// TLB parameters
+
+// All size parameters in bytes (keep to powers of 2)
+// Setting TLB_SIZE to 0 disables TLB simulation.
+#define TAG_SIZE 2
+//#define TLB_SIZE 16384
+#define TLB_SIZE 0 
+
+// TLB miss delay is in memory clock cycles
+#define TLB_MISS_DELAY 30
 
 
 // C standard library and C++ STL includes.
@@ -42,6 +129,7 @@
 #include <ctime>
 #include <stdint.h>
 #include <vector>
+#include <utility>
 #include <assert.h>
 
 // Include external interface for DRAMSim.
@@ -124,6 +212,12 @@ extern string NVDIMM_SAVE_FILE;
 #define FLASH_ADDRESS(tag, set) ((tag * NUM_SETS + set) * PAGE_SIZE)
 #define ALIGN(addr) (((addr / BURST_SIZE) * BURST_SIZE) % (TOTAL_PAGES * PAGE_SIZE))
 
+// TLB derived parameters
+#define BYTES_PER_READ 64
+#define TLB_MAX_ENTRIES (TLB_SIZE / BYTES_PER_READ)
+#define TAGS_PER_ENTRY (BYTES_PER_READ / TAG_SIZE)
+#define TLB_ENTRY_SPAN (PAGE_SIZE * TAGS_PER_ENTRY)
+#define TLB_BASE_ADDRESS(addr) ((addr * TLB_ENTRY_SPAN) / TLB_ENTRY_SPAN)
 
 // Declare the cache_line class, which is the table entry used for each line in the cache tag store.
 class cache_line
@@ -131,13 +225,22 @@ class cache_line
         public:
         bool valid;
         bool dirty;
+		bool locked;
+		uint64_t lock_count;
         uint64_t tag;
         uint64_t data;
         uint64_t ts;
+		bool prefetched; // Set to 1 if a cache_line is brought into DRAM as a prefetch.
+		bool used; // Like dirty, but also set to 1 for reads. Used for tracking prefetch hits vs. misses.
 
-        cache_line() : valid(false), dirty(false), tag(0), data(0), ts(0) {}
-        string str() { stringstream out; out << "tag=" << tag << " data=" << data << " valid=" << valid << " dirty=" << dirty << " ts=" << ts; return out.str(); }
-
+        cache_line() : valid(false), dirty(false), locked(false), lock_count(0), tag(0), data(0), ts(0), prefetched(0), used(0) {}
+        string str() 
+		{ 
+			stringstream out; 
+			out << "tag=" << tag << " data=" << data << " valid=" << valid << " dirty=" << dirty << " locked=" << locked 
+				<< " lock_count=" << lock_count << " ts=" << ts << " prefetched=" << prefetched << " used=" << used;
+			return out.str(); 
+		}
 };
 
 enum PendingOperation
@@ -158,30 +261,13 @@ class Pending
 	uint64_t flash_addr;
 	uint64_t cache_addr;
 	uint64_t victim_tag;
+	bool victim_valid;
 	bool callback_sent;
 	TransactionType type; // DATA_READ or DATA_WRITE
-	unordered_set<uint64_t> *wait;
 
-	Pending() : op(VICTIM_READ), flash_addr(0), cache_addr(0), victim_tag(0), type(DATA_READ), wait(0) {};
+	Pending() : op(VICTIM_READ), flash_addr(0), cache_addr(0), victim_tag(0), type(DATA_READ) {};
         string str() { stringstream out; out << "O=" << op << " F=" << flash_addr << " C=" << cache_addr << " V=" << victim_tag 
 		<< " T=" << type; return out.str(); }
-
-	void init_wait()
-	{
-		wait = new unordered_set<uint64_t>;
-
-	}
-
-	void insert_wait(uint64_t n)
-	{
-		wait->insert(n);
-	}
-
-	void delete_wait()
-	{
-		delete wait;
-		wait = NULL;
-	}
 };
 
 } // namespace HybridSim
