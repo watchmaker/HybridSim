@@ -179,6 +179,16 @@ extern uint64_t FLASH_BURST_SIZE; // number of bytes in a single flash transacti
 extern uint64_t TOTAL_PAGES; // 2 GB
 extern uint64_t CACHE_PAGES; // 1 GB
 
+// PaulMod: Replacement Policy Stuff
+enum ReplacementPolicy
+{
+  lru,
+  lfu,
+  cflru,
+  cflfu
+};
+extern string REPLACEMENT_POLICY;
+extern ReplacementPolicy replacementPolicy;
 
 // Defined in marss memoryHierachy.cpp.
 // Need to confirm this and make it more flexible later.
@@ -230,8 +240,9 @@ class cache_line
         uint64_t tag;
         uint64_t data;
         uint64_t ts;
-		bool prefetched; // Set to 1 if a cache_line is brought into DRAM as a prefetch.
-		bool used; // Like dirty, but also set to 1 for reads. Used for tracking prefetch hits vs. misses.
+	uint64_t access_count; // PaulMod: needed for LFU replacement policies
+	bool prefetched; // Set to 1 if a cache_line is brought into DRAM as a prefetch.
+	bool used; // Like dirty, but also set to 1 for reads. Used for tracking prefetch hits vs. misses.
 
         cache_line() : valid(false), dirty(false), locked(false), lock_count(0), tag(0), data(0), ts(0), prefetched(0), used(0) {}
         string str() 

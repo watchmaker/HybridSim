@@ -85,7 +85,7 @@ namespace HybridSim {
 		dram->RegisterCallbacks(read_cb, write_cb, NULL);
 
 		// Set up the callbacks for NVDIMM.
-		typedef NVDSim::Callback <HybridSystem, void, uint, uint64_t, uint64_t, bool> nvdsim_callback_t;
+		typedef NVDSim::Callback <HybridSystem, void, uint64_t, uint64_t, uint64_t, bool> nvdsim_callback_t;
 		NVDSim::Callback_t *nv_read_cb = new nvdsim_callback_t(this, &HybridSystem::FlashReadCallback);
 		NVDSim::Callback_t *nv_write_cb = new nvdsim_callback_t(this, &HybridSystem::FlashWriteCallback);
 		NVDSim::Callback_t *nv_crit_cb = new nvdsim_callback_t(this, &HybridSystem::FlashCriticalLineCallback);
@@ -572,7 +572,8 @@ namespace HybridSim {
 			}
 
 			cur_line = cache[cur_address];
-
+			
+			// Found a match so its a hit
 			if (cur_line.valid && (cur_line.tag == tag))
 			{
 				hit = true;
@@ -693,71 +694,16 @@ namespace HybridSim {
 				stream_buffer_miss_handler(PAGE_ADDRESS(addr));
 			}
 
-			// Select a victim offset within the set (LRU)
-			uint64_t victim = *(set_address_list.begin());
-			uint64_t min_ts = (uint64_t) 18446744073709551615U; // Max uint64_t
-			bool min_init = false;
-
-			if (DEBUG_VICTIM)
-			{
-				debug_victim << "--------------------------------------------------------------------\n";
-				debug_victim << currentClockCycle << ": new miss. time to pick the unlucky line.\n";
-				debug_victim << "set: " << set_index << "\n";
-				debug_victim << "new flash addr: 0x" << hex << addr << dec << "\n";
-				debug_victim << "new tag: " << TAG(addr)<< "\n";
-				debug_victim << "scanning set address list...\n\n";
-			}
-
-			uint64_t victim_counter = 0;
-			uint64_t victim_set_offset = 0;
-			for (list<uint64_t>::iterator it=set_address_list.begin(); it != set_address_list.end(); it++)
-			{
-				cur_address = *it;
-				cur_line = cache[cur_address];
-
-				if (DEBUG_VICTIM)
-				{
-					debug_victim << "cur_address= 0x" << hex << cur_address << dec << "\n";
-					debug_victim << "cur_tag= " << cur_line.tag << "\n";
-					debug_victim << "dirty= " << cur_line.dirty << "\n";
-					debug_victim << "valid= " << cur_line.valid << "\n";
-					debug_victim << "ts= " << cur_line.ts << "\n";
-					debug_victim << "min_ts= " << min_ts << "\n\n";
-				}
-
-				// If the current line is the least recent we've seen so far, then select it.
-				// But do not select it if the line is locked.
-				if (((cur_line.ts < min_ts) || (!min_init)) && (!cur_line.locked))
-				{
-					victim = cur_address;	
-					min_ts = cur_line.ts;
-					min_init = true;
-
-					victim_set_offset = victim_counter;
-					if (DEBUG_VICTIM)
-					{
-						debug_victim << "FOUND NEW MINIMUM!\n\n";
-					}
-				}
-
-				victim_counter++;
-				
-			}
-
-			if (DEBUG_VICTIM)
-			{
-				debug_victim << "Victim in set_offset: " << victim_set_offset << "\n\n";
-			}
-
-
-			cache_address = victim;
+			// Select a victim offset within the set
+			// PaulMod: Added victim select function
+			cache_address = VictimSelect(set_index, addr, cur_address, cur_line, set_address_list);
 			cur_line = cache[cache_address];
 
 			// Log the victim, set, etc.
 			// THIS MUST HAPPEN AFTER THE CUR_LINE IS SET TO THE VICTIM LINE.
 			uint64_t victim_flash_addr = FLASH_ADDRESS(cur_line.tag, set_index);
 			if ((ENABLE_LOGGER) && ((trans.transactionType == DATA_READ) || (trans.transactionType == DATA_WRITE)))
-				log.access_miss(PAGE_ADDRESS(addr), victim_flash_addr, set_index, victim, cur_line.dirty, cur_line.valid);
+				log.access_miss(PAGE_ADDRESS(addr), victim_flash_addr, set_index, cache_address, cur_line.dirty, cur_line.valid);
 
 
 			// Lock the victim page so it will not be selected for eviction again during the processing of this
@@ -1200,8 +1146,86 @@ namespace HybridSim {
 		contention_unlock(flash_address, flash_address, "FLUSH", false, 0, true, cache_addr);
 	}
 
+        uint64_t HybridSystem::VictimSelect(uint64_t set_index, uint64_t addr, uint64_t cur_address, cache_line cur_line, list<uint64_t> set_address_list)
+        {
+	        if(replacementPolicy == lru)
+		        return LRUVictim(set_index, addr, cur_address, cur_line, set_address_list);
+	        else if(replacementPolicy == lfu)
+		  //return LFUVictim(set_index, addr, cur_address, cur_line, set_address_list);
+		        return 0;
+	        else if(replacementPolicy == cflru)
+		  //return CFLRUVictim(set_index, addr, cur_address, cur_line, set_address_list);
+		        return 0;
+	        else if(replacementPolicy == cflfu)
+		  //return CFLFUVictim(set_index, addr, cur_address, cur_line, set_address_list);
+		        return 0;
+		else
+		  //return LRUVictim(set_index, addr, cur_address, cur_line, set_address_list);
+		        return 0;
+        }
+
+        uint64_t HybridSystem::LRUVictim(uint64_t set_index, uint64_t addr, uint64_t cur_address, cache_line cur_line, list<uint64_t> set_address_list)
+        {
+	        uint64_t victim = *(set_address_list.begin());
+		uint64_t min_ts = (uint64_t) 18446744073709551615U; // Max uint64_t
+		bool min_init = false;
+
+		if (DEBUG_VICTIM)
+		{
+			debug_victim << "--------------------------------------------------------------------\n";
+			debug_victim << currentClockCycle << ": new miss. time to pick the unlucky line.\n";
+			debug_victim << "set: " << set_index << "\n";
+			debug_victim << "new flash addr: 0x" << hex << addr << dec << "\n";
+			debug_victim << "new tag: " << TAG(addr)<< "\n";
+			debug_victim << "scanning set address list...\n\n";
+		}
+
+		uint64_t victim_counter = 0;
+		uint64_t victim_set_offset = 0;
+		for (list<uint64_t>::iterator it=set_address_list.begin(); it != set_address_list.end(); it++)
+		{
+			cur_address = *it;
+			cur_line = cache[cur_address];
+
+			if (DEBUG_VICTIM)
+			{
+				debug_victim << "cur_address= 0x" << hex << cur_address << dec << "\n";
+				debug_victim << "cur_tag= " << cur_line.tag << "\n";
+				debug_victim << "dirty= " << cur_line.dirty << "\n";
+				debug_victim << "valid= " << cur_line.valid << "\n";
+				debug_victim << "ts= " << cur_line.ts << "\n";
+				debug_victim << "min_ts= " << min_ts << "\n\n";
+			}
+
+			// If the current line is the least recent we've seen so far, then select it.
+			// But do not select it if the line is locked.
+			if (((cur_line.ts < min_ts) || (!min_init)) && (!cur_line.locked))
+			{
+				victim = cur_address;	
+				min_ts = cur_line.ts;
+				min_init = true;
+
+				victim_set_offset = victim_counter;
+				if (DEBUG_VICTIM)
+				{
+					debug_victim << "FOUND NEW MINIMUM!\n\n";
+				}
+			}
+
+			victim_counter++;
+			
+		}
+
+		if (DEBUG_VICTIM)
+		{
+			debug_victim << "Victim in set_offset: " << victim_set_offset << "\n\n";
+		}
+		
+		return victim;
+	}
+
 	void HybridSystem::RegisterCallbacks( TransactionCompleteCB *readDone, TransactionCompleteCB *writeDone)
-	{
+	{  
 		// Save the external callbacks.
 		ReadDone = readDone;
 		WriteDone = writeDone;
@@ -1269,7 +1293,7 @@ namespace HybridSim {
 		printf("power callback: %0.3f, %0.3f, %0.3f, %0.3f\n",a,b,c,d);
 	}
 
-	void HybridSystem::FlashReadCallback(uint id, uint64_t addr, uint64_t cycle, bool unmapped)
+	void HybridSystem::FlashReadCallback(uint64_t id, uint64_t addr, uint64_t cycle, bool unmapped)
 	{
 		if (flash_pending.count(PAGE_ADDRESS(addr)) != 0)
 		{
@@ -1298,7 +1322,7 @@ namespace HybridSim {
 		}
 	}
 
-	void HybridSystem::FlashCriticalLineCallback(uint id, uint64_t addr, uint64_t cycle, bool unmapped)
+	void HybridSystem::FlashCriticalLineCallback(uint64_t id, uint64_t addr, uint64_t cycle, bool unmapped)
 	{
 		// This function is called to implement critical line first for reads.
 		// This allows HybridSim to tell the external user it can make progress as soon as the data
@@ -1351,7 +1375,7 @@ namespace HybridSim {
 
 	}
 
-	void HybridSystem::FlashWriteCallback(uint id, uint64_t addr, uint64_t cycle, bool unmapped)
+	void HybridSystem::FlashWriteCallback(uint64_t id, uint64_t addr, uint64_t cycle, bool unmapped)
 	{
 		// Nothing to do (it doesn't matter when the flash write finishes for the cache controller, as long as it happens).
 

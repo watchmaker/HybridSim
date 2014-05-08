@@ -38,6 +38,7 @@
 #include <sstream>
 
 #include "util.h"
+#include "config.h"
 
 using namespace std;
 

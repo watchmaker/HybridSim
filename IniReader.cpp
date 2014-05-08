@@ -58,6 +58,9 @@ uint64_t FLASH_BURST_SIZE = 4096; // number of bytes in a single flash transacti
 uint64_t TOTAL_PAGES = 2097152/4; // 2 GB
 uint64_t CACHE_PAGES = 1048576/4; // 1 GB
 
+// PaulMod: Replacement Policy
+string REPLACEMENT_POLICY;
+ReplacementPolicy replacementPolicy;
 
 // Defined in marss memoryHierachy.cpp.
 // Need to confirm this and make it more flexible later.
@@ -150,6 +153,29 @@ string NVDIMM_SAVE_FILE = "none";
 				convert_uint64_t(TOTAL_PAGES, value, key);
 			else if (key.compare("CACHE_PAGES") == 0)
 				convert_uint64_t(CACHE_PAGES, value, key);
+			else if (key.compare("REPLACEMENT_POLICY") == 0)
+			{
+			        if(value.compare("LRU"))
+			        {
+				  replacementPolicy = lru;
+			        }
+				else if(value.compare("LFU"))
+				{
+				  replacementPolicy = lfu;
+				}
+				else if(value.compare("CFLRU"))
+				{
+				  replacementPolicy = cflru;
+				}
+				else if(value.compare("CFLFU"))
+				{
+				  replacementPolicy = cflfu;
+				}
+				else
+				{
+				  replacementPolicy = lru;
+				}
+			}
 			else if (key.compare("CYCLES_PER_SECOND") == 0)
 				convert_uint64_t(CYCLES_PER_SECOND, value, key);
 			else if (key.compare("dram_ini") == 0)

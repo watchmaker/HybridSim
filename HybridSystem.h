@@ -65,9 +65,9 @@ namespace HybridSim
 		void DRAMReadCallback(uint id, uint64_t addr, uint64_t cycle);
 		void DRAMWriteCallback(uint id, uint64_t addr, uint64_t cycle);
 		void DRAMPowerCallback(double a, double b, double c, double d);
-		void FlashReadCallback(uint id, uint64_t addr, uint64_t cycle, bool unmapped);
-		void FlashCriticalLineCallback(uint id, uint64_t addr, uint64_t cycle, bool unmapped);
-		void FlashWriteCallback(uint id, uint64_t addr, uint64_t cycle, bool unmapped);
+		void FlashReadCallback(uint64_t id, uint64_t addr, uint64_t cycle, bool unmapped);
+		void FlashCriticalLineCallback(uint64_t id, uint64_t addr, uint64_t cycle, bool unmapped);
+		void FlashWriteCallback(uint64_t id, uint64_t addr, uint64_t cycle, bool unmapped);
 
 		// Functions to run the callbacks to the module using HybridSim.
 		void ReadDoneCallback(uint systemID, uint64_t orig_addr, uint64_t cycle);
@@ -104,6 +104,14 @@ namespace HybridSim
 		void CacheWriteFinish(Pending p);
 
 		void Flush(uint64_t cache_addr);
+
+
+		// PaulMod: Replacement Policy Functions
+		uint64_t VictimSelect(uint64_t set_index, uint64_t addr, uint64_t cur_address, cache_line cur_line, list<uint64_t> set_address_list);
+		uint64_t LRUVictim(uint64_t set_index, uint64_t addr, uint64_t cur_address, cache_line cur_line, list<uint64_t> set_address_list);
+		uint64_t CFLRUVictim(uint64_t set_index, uint64_t addr, uint64_t cur_address, cache_line cur_line, list<uint64_t> set_address_list);
+		uint64_t LFUVictim(uint64_t set_index, uint64_t addr, uint64_t cur_address, cache_line cur_line, list<uint64_t> set_address_list);
+		uint64_t CFLFUVictim(uint64_t set_index, uint64_t addr, uint64_t cur_address, cache_line cur_line, list<uint64_t> set_address_list);
 
 
 		// Page Contention Functions
