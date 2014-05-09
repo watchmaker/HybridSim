@@ -954,6 +954,7 @@ namespace HybridSim {
 		cur_line.valid = true;
 		cur_line.ts = currentClockCycle;
 		cur_line.used = false;
+		cur_line.access_count = 1; // PaulMod: To support lfu
 		if (p.type == PREFETCH)
 		{
 			cur_line.prefetched = true;
@@ -1033,6 +1034,7 @@ namespace HybridSim {
 		// It really doesn't matter (AFAICT) as long as it is consistent.
 		cache_line cur_line = cache[cache_addr];
 		cur_line.ts = currentClockCycle;
+		cur_line.access_count++;
 		if ((cur_line.prefetched) && (cur_line.used == false)) // Note: this if statement must come before cur_line.used is set to true.
 			unused_prefetches--;
 		cur_line.used = true;
@@ -1111,6 +1113,7 @@ namespace HybridSim {
 			unused_prefetches--;
 		cur_line.used = true;
 		cur_line.ts = currentClockCycle;
+		cur_line.access_count++;
 		cache[p.cache_addr] = cur_line;
 
 		if (DEBUG_CACHE)
@@ -1139,6 +1142,7 @@ namespace HybridSim {
 		// Update the cache state
 		cache_line cur_line = cache[cache_addr];
 		cur_line.ts = 0;
+		cur_line.access_count = 0;
 		cache[cache_addr] = cur_line;
 
 		uint64_t set_index = SET_INDEX(cache_addr);
@@ -1151,17 +1155,13 @@ namespace HybridSim {
 	        if(replacementPolicy == lru)
 		        return LRUVictim(set_index, addr, cur_address, cur_line, set_address_list);
 	        else if(replacementPolicy == lfu)
-		  //return LFUVictim(set_index, addr, cur_address, cur_line, set_address_list);
-		        return 0;
+		        return LFUVictim(set_index, addr, cur_address, cur_line, set_address_list);
 	        else if(replacementPolicy == cflru)
-		  //return CFLRUVictim(set_index, addr, cur_address, cur_line, set_address_list);
-		        return 0;
+		        return CFLRUVictim(set_index, addr, cur_address, cur_line, set_address_list);
 	        else if(replacementPolicy == cflfu)
-		  //return CFLFUVictim(set_index, addr, cur_address, cur_line, set_address_list);
-		        return 0;
+		        return CFLFUVictim(set_index, addr, cur_address, cur_line, set_address_list);
 		else
-		  //return LRUVictim(set_index, addr, cur_address, cur_line, set_address_list);
-		        return 0;
+		        return LRUVictim(set_index, addr, cur_address, cur_line, set_address_list);
         }
 
         uint64_t HybridSystem::LRUVictim(uint64_t set_index, uint64_t addr, uint64_t cur_address, cache_line cur_line, list<uint64_t> set_address_list)
@@ -1223,6 +1223,188 @@ namespace HybridSim {
 		
 		return victim;
 	}
+
+        uint64_t HybridSystem::LFUVictim(uint64_t set_index, uint64_t addr, uint64_t cur_address, cache_line cur_line, list<uint64_t> set_address_list)
+        {
+	        uint64_t victim = *(set_address_list.begin());
+		uint64_t min_access_count = (uint64_t) 18446744073709551615U; // Max uint64_t
+		bool min_init = false;
+
+		if (DEBUG_VICTIM)
+		{
+			debug_victim << "--------------------------------------------------------------------\n";
+			debug_victim << currentClockCycle << ": new miss. time to pick the unlucky line.\n";
+			debug_victim << "set: " << set_index << "\n";
+			debug_victim << "new flash addr: 0x" << hex << addr << dec << "\n";
+			debug_victim << "new tag: " << TAG(addr)<< "\n";
+			debug_victim << "scanning set address list...\n\n";
+		}
+
+		uint64_t victim_counter = 0;
+		uint64_t victim_set_offset = 0;
+		for (list<uint64_t>::iterator it=set_address_list.begin(); it != set_address_list.end(); it++)
+		{
+			cur_address = *it;
+			cur_line = cache[cur_address];
+
+			if (DEBUG_VICTIM)
+			{
+				debug_victim << "cur_address= 0x" << hex << cur_address << dec << "\n";
+				debug_victim << "cur_tag= " << cur_line.tag << "\n";
+				debug_victim << "dirty= " << cur_line.dirty << "\n";
+				debug_victim << "valid= " << cur_line.valid << "\n";
+				debug_victim << "ts= " << cur_line.ts << "\n";
+				debug_victim << "access_count= " << cur_line.access_count << "\n";
+				debug_victim << "min_access_count= " << min_access_count << "\n\n";
+			}
+
+			// If the current line is the least recent we've seen so far, then select it.
+			// But do not select it if the line is locked.
+			if (((cur_line.access_count < min_access_count) || (!min_init)) && (!cur_line.locked))
+			{
+				victim = cur_address;	
+				min_access_count = cur_line.access_count;
+				min_init = true;
+
+				victim_set_offset = victim_counter;
+				if (DEBUG_VICTIM)
+				{
+					debug_victim << "FOUND NEW MINIMUM!\n\n";
+				}
+			}
+
+			victim_counter++;
+			
+		}
+
+		if (DEBUG_VICTIM)
+		{
+			debug_victim << "Victim in set_offset: " << victim_set_offset << "\n\n";
+		}
+		
+		return victim;
+        }
+
+        uint64_t HybridSystem::CFLRUVictim(uint64_t set_index, uint64_t addr, uint64_t cur_address, cache_line cur_line, list<uint64_t> set_address_list)
+        {
+	        uint64_t victim = *(set_address_list.begin());
+		uint64_t min_ts = (uint64_t) 18446744073709551615U; // Max uint64_t
+		bool min_init = false;
+
+		if (DEBUG_VICTIM)
+		{
+			debug_victim << "--------------------------------------------------------------------\n";
+			debug_victim << currentClockCycle << ": new miss. time to pick the unlucky line.\n";
+			debug_victim << "set: " << set_index << "\n";
+			debug_victim << "new flash addr: 0x" << hex << addr << dec << "\n";
+			debug_victim << "new tag: " << TAG(addr)<< "\n";
+			debug_victim << "scanning set address list...\n\n";
+		}
+
+		uint64_t victim_counter = 0;
+		uint64_t victim_set_offset = 0;
+		for (list<uint64_t>::iterator it=set_address_list.begin(); it != set_address_list.end(); it++)
+		{
+			cur_address = *it;
+			cur_line = cache[cur_address];
+
+			if (DEBUG_VICTIM)
+			{
+				debug_victim << "cur_address= 0x" << hex << cur_address << dec << "\n";
+				debug_victim << "cur_tag= " << cur_line.tag << "\n";
+				debug_victim << "dirty= " << cur_line.dirty << "\n";
+				debug_victim << "valid= " << cur_line.valid << "\n";
+				debug_victim << "ts= " << cur_line.ts << "\n";
+				debug_victim << "min_ts= " << min_ts << "\n\n";
+			}
+
+			// If the current line is the least recent we've seen so far, then select it.
+			// But do not select it if the line is locked.
+			if ((((cur_line.ts < min_ts) && (!cur_line.dirty))|| (!min_init)) && (!cur_line.locked))
+			{
+				victim = cur_address;	
+				min_ts = cur_line.ts;
+				min_init = true;
+
+				victim_set_offset = victim_counter;
+				if (DEBUG_VICTIM)
+				{
+					debug_victim << "FOUND NEW MINIMUM!\n\n";
+				}
+			}
+
+			victim_counter++;
+			
+		}
+
+		if (DEBUG_VICTIM)
+		{
+			debug_victim << "Victim in set_offset: " << victim_set_offset << "\n\n";
+		}
+		
+		return victim;
+	}
+
+        uint64_t HybridSystem::CFLFUVictim(uint64_t set_index, uint64_t addr, uint64_t cur_address, cache_line cur_line, list<uint64_t> set_address_list)
+        {
+	        uint64_t victim = *(set_address_list.begin());
+		uint64_t min_access_count = (uint64_t) 18446744073709551615U; // Max uint64_t
+		bool min_init = false;
+
+		if (DEBUG_VICTIM)
+		{
+			debug_victim << "--------------------------------------------------------------------\n";
+			debug_victim << currentClockCycle << ": new miss. time to pick the unlucky line.\n";
+			debug_victim << "set: " << set_index << "\n";
+			debug_victim << "new flash addr: 0x" << hex << addr << dec << "\n";
+			debug_victim << "new tag: " << TAG(addr)<< "\n";
+			debug_victim << "scanning set address list...\n\n";
+		}
+
+		uint64_t victim_counter = 0;
+		uint64_t victim_set_offset = 0;
+		for (list<uint64_t>::iterator it=set_address_list.begin(); it != set_address_list.end(); it++)
+		{
+			cur_address = *it;
+			cur_line = cache[cur_address];
+
+			if (DEBUG_VICTIM)
+			{
+				debug_victim << "cur_address= 0x" << hex << cur_address << dec << "\n";
+				debug_victim << "cur_tag= " << cur_line.tag << "\n";
+				debug_victim << "dirty= " << cur_line.dirty << "\n";
+				debug_victim << "valid= " << cur_line.valid << "\n";
+				debug_victim << "ts= " << cur_line.ts << "\n";
+				debug_victim << "access_count= " << cur_line.access_count << "\n";
+				debug_victim << "min_access_count= " << min_access_count << "\n\n";
+			}
+
+			// If the current line is the least recent we've seen so far, then select it.
+			// But do not select it if the line is locked.
+			if ((((cur_line.access_count < min_access_count) && (!cur_line.dirty)) || (!min_init)) && (!cur_line.locked))
+			{
+				victim = cur_address;	
+				min_access_count = cur_line.access_count;
+				min_init = true;
+
+				victim_set_offset = victim_counter;
+				if (DEBUG_VICTIM)
+				{
+					debug_victim << "FOUND NEW MINIMUM!\n\n";
+				}
+			}
+
+			victim_counter++;
+			
+		}
+
+		if (DEBUG_VICTIM)
+		{
+			debug_victim << "Victim in set_offset: " << victim_set_offset << "\n\n";
+		}
+		
+		return victim;
+        }
 
 	void HybridSystem::RegisterCallbacks( TransactionCompleteCB *readDone, TransactionCompleteCB *writeDone)
 	{  
