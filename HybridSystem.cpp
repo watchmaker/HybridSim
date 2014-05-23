@@ -551,6 +551,7 @@ namespace HybridSim {
 		uint64_t set_index = SET_INDEX(addr);
 		uint64_t tag = TAG(addr);
 
+		// Generating the set list for this set
 		list<uint64_t> set_address_list;
 		for (uint64_t i=0; i<SET_SIZE; i++)
 		{
