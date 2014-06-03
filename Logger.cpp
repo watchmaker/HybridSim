@@ -95,6 +95,24 @@ namespace HybridSim
 			set_conflicts[i] = 0;
 		}
 
+		// Init the conflict histogram
+		for (uint64_t i = 0; i <= CONFLICT_MAX; i += CONFLICT_BIN)
+		{
+			conflict_histogram[i] = 0;
+		}
+
+		// Init the set accesses
+		for (uint64_t i = 0; i < NUM_SETS; i++)
+		{
+			set_accesses[i] = 0;
+		}
+		
+		// Init the reuse histogram
+		for (uint64_t i = 0; i <= REUSE_MAX; i += REUSE_BIN)
+		{
+			reuse_histogram[i] = 0;
+		}
+
 		// Resetting the epoch state will initialize it.
 		epoch_count = 0;
 		this->epoch_reset(true);
@@ -305,6 +323,13 @@ namespace HybridSim
 		cur_pages_used[page_addr] = cur_count;
 	}
 
+        void Logger::access_set(uint64_t cache_set)
+	{
+	        // Increment the conflict counter for this set.
+		uint64_t tmp = set_accesses[cache_set];
+		set_accesses[cache_set] = tmp + 1;
+	}
+
 	void Logger::access_set_conflict(uint64_t cache_set)
 	{
 		// Increment the conflict counter for this set.
@@ -459,6 +484,8 @@ namespace HybridSim
 		cur_sum_miss_latency += cycles;
 	}
 
+  
+
 	void Logger::read_hit_latency(uint64_t cycles)
 	{
 		this->read_latency(cycles);
@@ -493,6 +520,16 @@ namespace HybridSim
 		sum_write_miss_latency += cycles;
 
 		cur_sum_write_miss_latency += cycles;
+	}
+
+        void Logger::reuse(uint64_t cycles)
+        {
+	        // Update the reuse distance histogram.
+		uint64_t bin = (cycles / REUSE_BIN) * REUSE_BIN;
+		if (cycles >= REUSE_MAX)
+			bin = REUSE_MAX;
+		uint64_t bin_cnt = reuse_histogram[bin];
+		reuse_histogram[bin] = bin_cnt + 1;
 	}
 
 	double Logger::divide(uint64_t a, uint64_t b)
@@ -536,6 +573,18 @@ namespace HybridSim
 		return (this->divide(sum, accesses) / CYCLES_PER_SECOND) * 1000000;
 	}
 
+        void Logger::generate_conflict_histogram()
+	{
+	        for (uint64_t set = 0; set < NUM_SETS; set++)
+		{		  
+		  uint64_t bin = (set_conflicts[set] / CONFLICT_BIN) * CONFLICT_BIN;
+		  if (set_conflicts[set] >= CONFLICT_MAX)
+		    bin = CONFLICT_MAX;
+		  uint64_t bin_cnt = conflict_histogram[bin];
+		  conflict_histogram[bin] = bin_cnt + 1;
+		}	   
+	}
+  
 
 	void Logger::epoch_reset(bool init)
 	{

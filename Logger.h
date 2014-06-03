@@ -161,6 +161,13 @@ namespace HybridSim
 		unordered_map<uint64_t, uint64_t> latency_histogram; 
 		unordered_map<uint64_t, uint64_t> set_conflicts; 
 
+		// Paul Mod: New logging information
+		unordered_map<uint64_t, uint64_t> conflict_histogram;
+		unordered_map<uint64_t, uint64_t> set_accesses;
+		unordered_map<uint64_t, uint64_t> reuse_histogram; // reuse distance
+		unordered_map<uint64_t, uint64_t> victim_requested;  // victim address - time from eviction
+		list<MissedPageEntry> victim_page_list;
+
 		// -----------------------------------------------------------
 		// Processing state (used to keep track of current transactions, but not part of logging state)
 
@@ -209,6 +216,7 @@ namespace HybridSim
 		void access_page(uint64_t page_addr);
 
 		void access_set_conflict(uint64_t cache_set);
+		void access_set(uint64_t cache_set);
 
 		void access_miss(uint64_t missed_page, uint64_t victim_page, uint64_t cache_set, uint64_t cache_page, bool dirty, bool valid);
 
@@ -244,6 +252,8 @@ namespace HybridSim
 		void hit_latency(uint64_t cycles);
 		void miss_latency(uint64_t cycles);
 
+		void reuse(uint64_t cycles);
+
 		double divide(uint64_t a, uint64_t b);
 
 		double miss_rate();
@@ -252,6 +262,8 @@ namespace HybridSim
 		double compute_throughput(uint64_t cycles, uint64_t accesses);
 		double latency_cycles(uint64_t sum, uint64_t accesses);
 		double latency_us(uint64_t sum, uint64_t accesses);
+
+		void generate_conflict_histogram();
 
 		void epoch_reset(bool init);
 	};

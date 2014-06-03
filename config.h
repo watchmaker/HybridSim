@@ -169,6 +169,10 @@ extern uint64_t ENABLE_LOGGER;
 extern uint64_t EPOCH_LENGTH;
 extern uint64_t HISTOGRAM_BIN;
 extern uint64_t HISTOGRAM_MAX;
+extern uint64_t CONFLICT_BIN;
+extern uint64_t CONFLICT_MAX;
+extern uint64_t REUSE_BIN;
+extern uint64_t REUSE_MAX;
 
 extern uint64_t PAGE_SIZE; // in bytes, so divide this by 64 to get the number of DDR3 transfers per page
 extern uint64_t SET_SIZE; // associativity of cache
