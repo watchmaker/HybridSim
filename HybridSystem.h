@@ -112,6 +112,7 @@ namespace HybridSim
 		uint64_t CFLRUVictim(uint64_t set_index, uint64_t addr, uint64_t cur_address, cache_line cur_line, list<uint64_t> set_address_list);
 		uint64_t LFUVictim(uint64_t set_index, uint64_t addr, uint64_t cur_address, cache_line cur_line, list<uint64_t> set_address_list);
 		uint64_t CFLFUVictim(uint64_t set_index, uint64_t addr, uint64_t cur_address, cache_line cur_line, list<uint64_t> set_address_list);
+		uint64_t RandomVictim(uint64_t set_index, uint64_t addr, uint64_t cur_address, cache_line cur_line, list<uint64_t> set_address_list);
 
 
 		// Page Contention Functions

@@ -183,6 +183,10 @@ string NVDIMM_SAVE_FILE = "none";
 				{
 				  replacementPolicy = cflfu;
 				}
+				else if(value.compare("Random"))
+				{
+				  replacementPolicy = random;
+				}
 				else
 				{
 				  replacementPolicy = lru;

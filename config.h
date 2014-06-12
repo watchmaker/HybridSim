@@ -189,7 +189,8 @@ enum ReplacementPolicy
   lru,
   lfu,
   cflru,
-  cflfu
+  cflfu,
+  random
 };
 extern string REPLACEMENT_POLICY;
 extern ReplacementPolicy replacementPolicy;

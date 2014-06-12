@@ -1164,6 +1164,8 @@ namespace HybridSim {
 		        return CFLRUVictim(set_index, addr, cur_address, cur_line, set_address_list);
 	        else if(replacementPolicy == cflfu)
 		        return CFLFUVictim(set_index, addr, cur_address, cur_line, set_address_list);
+		else if(replacementPolicy == random)
+		        return RandomVictim(set_index, addr, cur_address, cur_line, set_address_list);
 		else
 		        return LRUVictim(set_index, addr, cur_address, cur_line, set_address_list);
         }
@@ -1364,6 +1366,71 @@ namespace HybridSim {
 			debug_victim << "new tag: " << TAG(addr)<< "\n";
 			debug_victim << "scanning set address list...\n\n";
 		}
+
+		uint64_t victim_counter = 0;
+		uint64_t victim_set_offset = 0;
+		for (list<uint64_t>::iterator it=set_address_list.begin(); it != set_address_list.end(); it++)
+		{
+			cur_address = *it;
+			cur_line = cache[cur_address];
+
+			if (DEBUG_VICTIM)
+			{
+				debug_victim << "cur_address= 0x" << hex << cur_address << dec << "\n";
+				debug_victim << "cur_tag= " << cur_line.tag << "\n";
+				debug_victim << "dirty= " << cur_line.dirty << "\n";
+				debug_victim << "valid= " << cur_line.valid << "\n";
+				debug_victim << "ts= " << cur_line.ts << "\n";
+				debug_victim << "access_count= " << cur_line.access_count << "\n";
+				debug_victim << "min_access_count= " << min_access_count << "\n\n";
+			}
+
+			// If the current line is the least recent we've seen so far, then select it.
+			// But do not select it if the line is locked.
+			if ((((cur_line.access_count < min_access_count) && (!cur_line.dirty)) || (!min_init)) && (!cur_line.locked))
+			{
+				victim = cur_address;	
+				min_access_count = cur_line.access_count;
+				min_init = true;
+
+				victim_set_offset = victim_counter;
+				if (DEBUG_VICTIM)
+				{
+					debug_victim << "FOUND NEW MINIMUM!\n\n";
+				}
+			}
+
+			victim_counter++;
+			
+		}
+
+		if (DEBUG_VICTIM)
+		{
+			debug_victim << "Victim in set_offset: " << victim_set_offset << "\n\n";
+		}
+		
+		return victim;
+        }
+
+	uint64_t HybridSystem::RandomVictim(uint64_t set_index, uint64_t addr, uint64_t cur_address, cache_line cur_line, list<uint64_t> set_address_list)
+        {
+	        uint64_t victim = *(set_address_list.begin());
+		uint64_t min_access_count = (uint64_t) 18446744073709551615U; // Max uint64_t
+		bool min_init = false;
+
+		if (DEBUG_VICTIM)
+		{
+			debug_victim << "--------------------------------------------------------------------\n";
+			debug_victim << currentClockCycle << ": new miss. time to pick the unlucky line.\n";
+			debug_victim << "set: " << set_index << "\n";
+			debug_victim << "new flash addr: 0x" << hex << addr << dec << "\n";
+			debug_victim << "new tag: " << TAG(addr)<< "\n";
+			debug_victim << "scanning set address list...\n\n";
+		}
+
+		
+
+		
 
 		uint64_t victim_counter = 0;
 		uint64_t victim_set_offset = 0;
