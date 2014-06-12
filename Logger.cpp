@@ -38,13 +38,13 @@ namespace HybridSim
 	{
 	}
 
-	Logger::~Logger()
+        Logger::~Logger()
 	{
 		if (DEBUG_LOGGER && debug.is_open()) 
 			debug.close();
 	}
 
-	void Logger::init()
+        void Logger::init()
 	{
 		// Overall state
 		num_accesses = 0;
@@ -142,6 +142,22 @@ namespace HybridSim
 	void Logger::access_start(uint64_t addr)
 	{
 		access_queue.push_back(pair <uint64_t, uint64_t>(addr, currentClockCycle));
+
+		// see if this addr has been accessed before
+		// if it has then record this reuse
+		list<pair <uint64_t, uint64_t>>::iterator it;
+		for (it = last_access.begin(); it != last_access.end(); it++)
+		{
+			uint64_t prev_addr = (*it).first;
+			uint64_t prev_cycle = (*it).second;
+
+			if (prev_addr == addr)
+			{
+				uint64_t reuse_distance = currentClockCycle - prev_cycle;
+				reuse(reuse_distance);
+				break;
+			}
+		}
 
 		if (DEBUG_LOGGER)
 		{
@@ -247,6 +263,30 @@ namespace HybridSim
 			this->write_miss_latency(latency);
 		}
 
+		// record the time stamp for reuse distance calculation
+		// this is very similar to the access queue structure but still
+		// different because we're not trying to match the cycle, just the address
+		// also, we're going to update the list entry if it already exists
+		list<pair <uint64_t, uint64_t>>::iterator it;
+		bool existed = false;
+		for (it = last_access.begin(); it != last_access.end(); it++)
+	        {
+			uint64_t prev_addr = (*it).first;
+
+			if (prev_addr == addr)
+			{
+				(*it).second = a.stop;
+				existed = true;
+				break;
+			}
+		}
+		
+		// if the list entry for this address didn't exist, create one
+		if(!existed)
+	        {
+			last_access.push_back(pair <uint64_t, uint64_t>(addr, a.stop));
+		}
+
 		
 		access_map.erase(addr);
 
@@ -323,9 +363,20 @@ namespace HybridSim
 		cur_pages_used[page_addr] = cur_count;
 	}
 
-        void Logger::access_set(uint64_t cache_set)
+        void Logger::access_contention_conflict(uint64_t cache_set)
 	{
-	        // Increment the conflict counter for this set.
+		// Increment the contention conflict counter for this set.
+	        // This is different from an access conflict, its a contention
+	        // lock conflict
+		uint64_t tmp = contention_conflicts[cache_set];
+		contention_conflicts[cache_set] = tmp + 1;
+	}
+
+	// this just records all the accesses to each set so we can see how evenly they
+	// are distributed by the mapping
+	void Logger::access_set(uint64_t cache_set)
+	{
+		// Increment the access counter for this set.
 		uint64_t tmp = set_accesses[cache_set];
 		set_accesses[cache_set] = tmp + 1;
 	}
@@ -340,6 +391,7 @@ namespace HybridSim
 	void Logger::access_miss(uint64_t missed_page, uint64_t victim_page, uint64_t cache_set, uint64_t cache_page, bool dirty, bool valid)
 	{
 		MissedPageEntry m(currentClockCycle, missed_page, victim_page, cache_set, cache_page, dirty, valid);
+		access_set_conflict(cache_set); // PaulMod: record this conflict miss
 		
 		missed_page_list.push_back(m);
 	}
@@ -573,6 +625,7 @@ namespace HybridSim
 		return (this->divide(sum, accesses) / CYCLES_PER_SECOND) * 1000000;
 	}
 
+        // this generates the histogram for actual conflict misses on an access
         void Logger::generate_conflict_histogram()
 	{
 	        for (uint64_t set = 0; set < NUM_SETS; set++)
@@ -845,6 +898,42 @@ namespace HybridSim
 		}
 
 		savefile << "\n\n";
+
+		savefile << "================================================================================\n\n";
+		savefile << "Conflict Histogram:\n\n";
+
+		savefile << "CONFLICT_BIN: " << CONFLICT_BIN << "\n";
+		savefile << "CONFLICT_MAX: " << CONFLICT_MAX << "\n\n";
+		for (uint64_t bin = 0; bin <= CONFLICT_MAX; bin += CONFLICT_BIN)
+		{
+			savefile << bin << ": " << conflict_histogram[bin] << "\n";
+		}
+
+		savefile << "\n\n";
+
+		savefile << "================================================================================\n\n";
+		savefile << "Reuse Histogram:\n\n";
+
+		savefile << "REUSE_BIN: " << REUSE_BIN << "\n";
+		savefile << "REUSE_MAX: " << REUSE_MAX << "\n\n";
+		for (uint64_t bin = 0; bin <= REUSE_MAX; bin += REUSE_BIN)
+		{
+			savefile << bin << ": " << reuse_histogram[bin] << "\n";
+		}
+
+		savefile << "\n\n";
+
+		savefile << "================================================================================\n\n";
+		savefile << "Set Accesses:\n\n";
+
+		for (uint64_t set = 0; set < NUM_SETS; set++)
+		{
+			// Only print the sets that have greater than 0 conflicts.
+			if (set_accesses[set])
+				savefile << set << ": " << set_accesses[set] << "\n";
+		}
+
+		savefile.close();
 
 		savefile << "================================================================================\n\n";
 		savefile << "Set Conflicts:\n\n";

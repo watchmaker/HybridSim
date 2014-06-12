@@ -159,12 +159,15 @@ namespace HybridSim
 
 
 		unordered_map<uint64_t, uint64_t> latency_histogram; 
+		unordered_map<uint64_t, uint64_t> contention_conflicts;
 		unordered_map<uint64_t, uint64_t> set_conflicts; 
 
 		// Paul Mod: New logging information
 		unordered_map<uint64_t, uint64_t> conflict_histogram;
 		unordered_map<uint64_t, uint64_t> set_accesses;
+		list<pair <uint64_t, uint64_t> > last_access; // keeps the timestamp of the last access to this address for reuse calculation purposes
 		unordered_map<uint64_t, uint64_t> reuse_histogram; // reuse distance
+		
 		unordered_map<uint64_t, uint64_t> victim_requested;  // victim address - time from eviction
 		list<MissedPageEntry> victim_page_list;
 
@@ -215,6 +218,7 @@ namespace HybridSim
 
 		void access_page(uint64_t page_addr);
 
+		void access_contention_conflict(uint64_t cache_set);
 		void access_set_conflict(uint64_t cache_set);
 		void access_set(uint64_t cache_set);
 

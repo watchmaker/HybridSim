@@ -43,6 +43,10 @@ uint64_t ENABLE_LOGGER = 1;
 uint64_t EPOCH_LENGTH = 200000;
 uint64_t HISTOGRAM_BIN = 100;
 uint64_t HISTOGRAM_MAX = 20000;
+uint64_t CONFLICT_BIN = 25;
+uint64_t CONFLICT_MAX = 500;
+uint64_t REUSE_BIN = 25;
+uint64_t REUSE_MAX = 500;
 
 // these values are also specified in the ini file of the nvdimm but have a different name
 uint64_t PAGE_SIZE = 4096; // in bytes, so divide this by 64 to get the number of DDR3 transfers per page
@@ -141,6 +145,14 @@ string NVDIMM_SAVE_FILE = "none";
 				convert_uint64_t(HISTOGRAM_BIN, value, key);
 			else if (key.compare("HISTOGRAM_MAX") == 0)
 				convert_uint64_t(HISTOGRAM_MAX, value, key);
+			else if (key.compare("CONFLICT_BIN") == 0)
+				convert_uint64_t(CONFLICT_BIN, value, key);
+			else if (key.compare("CONFLICT_MAX") == 0)
+				convert_uint64_t(CONFLICT_MAX, value, key);
+			else if (key.compare("REUSE_BIN") == 0)
+				convert_uint64_t(REUSE_BIN, value, key);
+			else if (key.compare("REUSE_MAX") == 0)
+				convert_uint64_t(REUSE_MAX, value, key);
 			else if (key.compare("PAGE_SIZE") == 0)
 				convert_uint64_t(PAGE_SIZE, value, key);
 			else if (key.compare("SET_SIZE") == 0)

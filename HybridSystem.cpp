@@ -322,7 +322,7 @@ namespace HybridSim {
 			{
 				// Log the set conflict.
 				if (ENABLE_LOGGER)
-					log.access_set_conflict(SET_INDEX(page_addr));
+					log.access_contention_conflict(SET_INDEX(page_addr));
 
 				// Skip to the next and do nothing else.
 				++it;
@@ -550,6 +550,9 @@ namespace HybridSim {
 		// Compute the set number and tag
 		uint64_t set_index = SET_INDEX(addr);
 		uint64_t tag = TAG(addr);
+
+		if(ENABLE_LOGGER)
+			log.access_set(set_index);
 
 		// Generating the set list for this set
 		list<uint64_t> set_address_list;
