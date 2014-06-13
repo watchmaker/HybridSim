@@ -1416,7 +1416,6 @@ namespace HybridSim {
         {
 	        uint64_t victim = *(set_address_list.begin());
 		uint64_t min_access_count = (uint64_t) 18446744073709551615U; // Max uint64_t
-		bool min_init = false;
 
 		if (DEBUG_VICTIM)
 		{
@@ -1425,53 +1424,26 @@ namespace HybridSim {
 			debug_victim << "set: " << set_index << "\n";
 			debug_victim << "new flash addr: 0x" << hex << addr << dec << "\n";
 			debug_victim << "new tag: " << TAG(addr)<< "\n";
-			debug_victim << "scanning set address list...\n\n";
+			debug_victim << "selecting random victim...\n\n";
 		}
 
-		
-
-		
-
-		uint64_t victim_counter = 0;
-		uint64_t victim_set_offset = 0;
-		for (list<uint64_t>::iterator it=set_address_list.begin(); it != set_address_list.end(); it++)
-		{
-			cur_address = *it;
-			cur_line = cache[cur_address];
-
-			if (DEBUG_VICTIM)
-			{
-				debug_victim << "cur_address= 0x" << hex << cur_address << dec << "\n";
-				debug_victim << "cur_tag= " << cur_line.tag << "\n";
-				debug_victim << "dirty= " << cur_line.dirty << "\n";
-				debug_victim << "valid= " << cur_line.valid << "\n";
-				debug_victim << "ts= " << cur_line.ts << "\n";
-				debug_victim << "access_count= " << cur_line.access_count << "\n";
-				debug_victim << "min_access_count= " << min_access_count << "\n\n";
-			}
-
-			// If the current line is the least recent we've seen so far, then select it.
-			// But do not select it if the line is locked.
-			if ((((cur_line.access_count < min_access_count) && (!cur_line.dirty)) || (!min_init)) && (!cur_line.locked))
-			{
-				victim = cur_address;	
-				min_access_count = cur_line.access_count;
-				min_init = true;
-
-				victim_set_offset = victim_counter;
-				if (DEBUG_VICTIM)
-				{
-					debug_victim << "FOUND NEW MINIMUM!\n\n";
-				}
-			}
-
-			victim_counter++;
-			
-		}
+		// making use of a lot of standard library algorithms here to avoid random selection bias
+		list<uint64_t>::iterator it = set_address_list.begin();
+		std::uniform_int_distribution<uint64_t> set_list_dist(0, set_address_list.size()-1);
+		std::default_random_engine rand_gen;
+		advance(it, set_list_dist(rand_gen));
+		victim = *it;
+		cur_line = cache[victim];
 
 		if (DEBUG_VICTIM)
 		{
-			debug_victim << "Victim in set_offset: " << victim_set_offset << "\n\n";
+			debug_victim << "victim= 0x" << hex << victim << dec << "\n";
+			debug_victim << "cur_tag= " << cur_line.tag << "\n";
+			debug_victim << "dirty= " << cur_line.dirty << "\n";
+			debug_victim << "valid= " << cur_line.valid << "\n";
+			debug_victim << "ts= " << cur_line.ts << "\n";
+			debug_victim << "access_count= " << cur_line.access_count << "\n";
+			debug_victim << "min_access_count= " << min_access_count << "\n\n";
 		}
 		
 		return victim;

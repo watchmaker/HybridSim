@@ -115,7 +115,16 @@ void confirm_directory_exists(string path)
 	int sys_done = system(command);
 	if (sys_done != 0)
 	{
-		cerr << "system command to confirm directory "+path+" exists has failed.";
+		cerr << "system command to confirm directory "+path+" exists has failed. \n";
 		abort();
 	}
+}
+
+uint64_t rand64_r(unsigned int *seed)
+{
+	uint64_t lower = 0, upper = 0, result = 0;
+	lower = (uint64_t)rand_r(seed);
+	upper = (uint64_t)rand_r(seed);
+	result = (upper << 32) | lower;
+	return result;
 }

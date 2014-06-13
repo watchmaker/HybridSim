@@ -38,6 +38,8 @@
 #include <sstream>
 #include <stdint.h>
 #include <cstdlib>
+#include <time.h>
+#include <random>
 
 using namespace std;
 
@@ -48,5 +50,7 @@ string strip(string input, string chars = " \t\f\v\n\r");
 list<string> split(string input, string chars = " \t\f\v\n\r", size_t maxsplit=string::npos);
 
 void confirm_directory_exists(string path);
+
+uint64_t rand64_r(unsigned int *seed);
 
 #endif
