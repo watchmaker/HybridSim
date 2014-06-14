@@ -900,6 +900,8 @@ namespace HybridSim
 		savefile << "\n\n";
 
 		savefile << "================================================================================\n\n";
+
+		generate_conflict_histogram();
 		savefile << "Conflict Histogram:\n\n";
 
 		savefile << "CONFLICT_BIN: " << CONFLICT_BIN << "\n";

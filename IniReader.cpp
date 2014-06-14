@@ -167,23 +167,23 @@ string NVDIMM_SAVE_FILE = "none";
 				convert_uint64_t(CACHE_PAGES, value, key);
 			else if (key.compare("REPLACEMENT_POLICY") == 0)
 			{
-			        if(value.compare("LRU"))
+			        if(value.compare("LRU") == 0)
 			        {
 				  replacementPolicy = lru;
 			        }
-				else if(value.compare("LFU"))
+				else if(value.compare("LFU") == 0)
 				{
 				  replacementPolicy = lfu;
 				}
-				else if(value.compare("CFLRU"))
+				else if(value.compare("CFLRU") == 0)
 				{
 				  replacementPolicy = cflru;
 				}
-				else if(value.compare("CFLFU"))
+				else if(value.compare("CFLFU") == 0)
 				{
 				  replacementPolicy = cflfu;
 				}
-				else if(value.compare("Random"))
+				else if(value.compare("Random") == 0)
 				{
 				  replacementPolicy = random;
 				}
