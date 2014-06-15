@@ -1431,9 +1431,17 @@ namespace HybridSim {
 		list<uint64_t>::iterator it = set_address_list.begin();
 		std::uniform_int_distribution<uint64_t> set_list_dist(0, set_address_list.size()-1);
 		std::default_random_engine rand_gen;
-		advance(it, set_list_dist(rand_gen));
-		victim = *it;
-		cur_line = cache[victim];
+
+		// might have to do this multiple times to fine a line that is not locked
+		bool done = false;
+		while(!done)
+		{
+			advance(it, set_list_dist(rand_gen));
+			victim = *it;
+			cur_line = cache[victim];
+			if(!cur_line.locked)
+				done = true;
+		}
 
 		if (DEBUG_VICTIM)
 		{
