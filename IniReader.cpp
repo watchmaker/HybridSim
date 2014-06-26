@@ -45,8 +45,8 @@ uint64_t HISTOGRAM_BIN = 100;
 uint64_t HISTOGRAM_MAX = 20000;
 uint64_t CONFLICT_BIN = 25;
 uint64_t CONFLICT_MAX = 500;
-uint64_t REUSE_BIN = 25;
-uint64_t REUSE_MAX = 500;
+uint64_t REUSE_BIN = 25000;
+uint64_t REUSE_MAX = 500000;
 
 // these values are also specified in the ini file of the nvdimm but have a different name
 uint64_t PAGE_SIZE = 4096; // in bytes, so divide this by 64 to get the number of DDR3 transfers per page
@@ -65,6 +65,7 @@ uint64_t CACHE_PAGES = 1048576/4; // 1 GB
 // PaulMod: Replacement Policy
 string REPLACEMENT_POLICY;
 ReplacementPolicy replacementPolicy;
+uint64_t REPLACEMENT_PERIOD;
 
 // Defined in marss memoryHierachy.cpp.
 // Need to confirm this and make it more flexible later.
@@ -169,29 +170,47 @@ string NVDIMM_SAVE_FILE = "none";
 			{
 			        if(value.compare("LRU") == 0)
 			        {
-				  replacementPolicy = lru;
+					replacementPolicy = lru;
 			        }
+				else if(value.compare("NRU") == 0)
+				{
+					replacementPolicy = nru;
+				}
 				else if(value.compare("LFU") == 0)
 				{
-				  replacementPolicy = lfu;
+					replacementPolicy = lfu;
 				}
 				else if(value.compare("CFLRU") == 0)
 				{
-				  replacementPolicy = cflru;
+					replacementPolicy = cflru;
 				}
 				else if(value.compare("CFLFU") == 0)
 				{
-				  replacementPolicy = cflfu;
+					replacementPolicy = cflfu;
 				}
 				else if(value.compare("Random") == 0)
 				{
-				  replacementPolicy = random;
+					replacementPolicy = random;
+				}
+				else if(value.compare("BIP") == 0)
+				{
+					replacementPolicy = bip;
+				}
+				else if(value.compare("DIP") == 0)
+				{
+					replacementPolicy = dip;
+				}
+				else if(value.compare("RRIP") == 0)
+				{
+					replacementPolicy = rrip;
 				}
 				else
 				{
-				  replacementPolicy = lru;
+					replacementPolicy = lru;
 				}
 			}
+			else if (key.compare("REPLACEMENT_PERIOD") == 0)
+				convert_uint64_t(REPLACEMENT_PERIOD, value, key);
 			else if (key.compare("CYCLES_PER_SECOND") == 0)
 				convert_uint64_t(CYCLES_PER_SECOND, value, key);
 			else if (key.compare("dram_ini") == 0)

@@ -28,6 +28,8 @@
 * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *********************************************************************************/
 
+#include <getopt.h>
+#include <sstream>
 
 #include "HybridSystem.h"
 

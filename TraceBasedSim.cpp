@@ -44,6 +44,9 @@ uint64_t throttle_count = 0;
 uint64_t throttle_cycles = 0;
 uint64_t final_cycles = 0;
 
+// The maximum transaction count for this simuation
+uint64_t MAX_TRANS = 0;
+
 // The cycle counter is used to keep track of what cycle we are on.
 uint64_t trace_cycles = 0;
 
@@ -51,18 +54,58 @@ uint64_t last_clock = 0;
 uint64_t CLOCK_DELAY = 1000000;
 
 
+void print_usage()
+{
+	cout << "Hybrid Trace Based Sim Usage \n\n";
+	cout << " -t --trace_file <filename>    Trace file to use \n";
+	cout << " -e --end_trans <trans number> Transaction to end on \n";
+	cout << " -h --help                     Display the usage information \n";
+}
+
 int main(int argc, char *argv[])
 {
 	printf("hybridsim_test main()\n");
 	HybridSimTBS obj;
 
+	int c;
 	string tracefile = "traces/test.txt";
-	if (argc > 1)
+	bool trace_set = false;
+	stringstream ss;
+	
+	// the array of options that we will use
+	const struct option long_options[] = {
+		{ "trace_file", required_argument, NULL, 't'},
+		{ "end_trans", required_argument, NULL, 'e'},
+		{ "help", no_argument, NULL, 'h' },
+		{ NULL, no_argument, NULL, 0 }		
+	};
+
+	while((c = getopt_long(argc, argv, "t:e:h", long_options, NULL)) != -1)
 	{
-		tracefile = argv[1];
-		cout << "Using trace file " << tracefile << "\n";
+		switch(c)
+		{
+		case 't':
+			trace_set = true;
+			tracefile = string(optarg);
+			cout << "Using trace file " << tracefile << "\n";
+			break;
+		case 'e':
+			ss << optarg;
+			ss >> MAX_TRANS;
+			break;
+		case 'h':
+			print_usage();
+			break;
+		case '?':
+			break;
+		default:
+			cout << "unknown option. \n";
+			print_usage();
+			abort();
+		}
 	}
-	else
+
+	if(!trace_set)
 	{
 		cout << "Using default trace file (traces/test.txt)\n";
 	}
@@ -126,8 +169,10 @@ int HybridSimTBS::run_trace(string tracefile)
 
 	char char_line[256];
 	string line;
+	bool done = false;
+	uint64_t trans_count = 0;
 
-	while (inFile.good())
+	while (inFile.good() && !done)
 	{
 		// Read the next line.
 		inFile.getline(char_line, 256);
@@ -182,6 +227,7 @@ int HybridSimTBS::run_trace(string tracefile)
 		// add the transaction and continue
 		mem->addTransaction(write, addr);
 		pending++;
+		trans_count++;
 
 		// If the pending count goes above MAX_PENDING, wait until it goes back below MIN_PENDING before adding more 
 		// transactions. This throttling will prevent the memory system from getting overloaded.
@@ -197,6 +243,9 @@ int HybridSimTBS::run_trace(string tracefile)
 			//cout << "Back to MIN_PENDING. Allowing transactions to be added again.\t\tcycle= " << trace_cycles << "\n";
 		}
 
+		// check to see if we're done with the trace for now
+		if(MAX_TRANS != 0 && trans_count >= MAX_TRANS)
+			done = true;
 	}
 
 	inFile.close();

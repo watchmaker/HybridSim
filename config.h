@@ -146,23 +146,18 @@ using DRAMSim::SimulatorObject;
 // Include external interface for NVDIMM.
 #include <NVDIMMSim.h>
 
-
 // Include the Transaction type (which is needed below).
 #include "Transaction.h"
 
 // Declare error printout (used to be brought in from DRAMSim).
 #define ERROR(str) std::cerr<<"[ERROR ("<<__FILE__<<":"<<__LINE__<<")]: "<<str<<std::endl;
 
-
 using namespace std;
 
 namespace HybridSim
 {
 
-
-
 // Declare externs for Ini file settings.
-
 extern uint64_t CONTROLLER_DELAY;
 
 extern uint64_t ENABLE_LOGGER;
@@ -187,13 +182,18 @@ extern uint64_t CACHE_PAGES; // 1 GB
 enum ReplacementPolicy
 {
   lru,
+  nru,
   lfu,
   cflru,
   cflfu,
-  random
+  random,
+  bip,
+  dip,
+  rrip
 };
 extern string REPLACEMENT_POLICY;
 extern ReplacementPolicy replacementPolicy;
+extern uint64_t REPLACEMENT_PERIOD; //Used for some replacement policies that have to be periodically reset (like NRU)
 
 // Defined in marss memoryHierachy.cpp.
 // Need to confirm this and make it more flexible later.
@@ -211,10 +211,6 @@ extern string HYBRIDSIM_RESTORE_FILE;
 extern string NVDIMM_RESTORE_FILE;
 extern string HYBRIDSIM_SAVE_FILE;
 extern string NVDIMM_SAVE_FILE;
-
-
-
-
 
 // Macros derived from Ini settings.
 
@@ -240,23 +236,24 @@ class cache_line
         public:
         bool valid;
         bool dirty;
-		bool locked;
-		uint64_t lock_count;
+	bool locked;
+	uint64_t lock_count;
         uint64_t tag;
         uint64_t data;
         uint64_t ts;
 	uint64_t access_count; // PaulMod: needed for LFU replacement policies
 	bool prefetched; // Set to 1 if a cache_line is brought into DRAM as a prefetch.
 	bool used; // Like dirty, but also set to 1 for reads. Used for tracking prefetch hits vs. misses.
+	bool accessed; // This is for not recently used
 
         cache_line() : valid(false), dirty(false), locked(false), lock_count(0), tag(0), data(0), ts(0), prefetched(0), used(0) {}
         string str() 
-		{ 
-			stringstream out; 
-			out << "tag=" << tag << " data=" << data << " valid=" << valid << " dirty=" << dirty << " locked=" << locked 
-				<< " lock_count=" << lock_count << " ts=" << ts << " prefetched=" << prefetched << " used=" << used;
-			return out.str(); 
-		}
+	{ 
+		stringstream out; 
+		out << "tag=" << tag << " data=" << data << " valid=" << valid << " dirty=" << dirty << " locked=" << locked 
+			    << " lock_count=" << lock_count << " ts=" << ts << " prefetched=" << prefetched << " used=" << used;
+		return out.str(); 
+	}
 };
 
 enum PendingOperation

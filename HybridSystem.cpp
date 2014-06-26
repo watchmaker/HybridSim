@@ -1158,6 +1158,8 @@ namespace HybridSim {
         {
 	        if(replacementPolicy == lru)
 		        return LRUVictim(set_index, addr, cur_address, cur_line, set_address_list);
+		else if(replacementPolicy == nru)
+			return NRUVictim(set_index, addr, cur_address, cur_line, set_address_list);
 	        else if(replacementPolicy == lfu)
 		        return LFUVictim(set_index, addr, cur_address, cur_line, set_address_list);
 	        else if(replacementPolicy == cflru)
@@ -1166,11 +1168,72 @@ namespace HybridSim {
 		        return CFLFUVictim(set_index, addr, cur_address, cur_line, set_address_list);
 		else if(replacementPolicy == random)
 		        return RandomVictim(set_index, addr, cur_address, cur_line, set_address_list);
+
 		else
 		        return LRUVictim(set_index, addr, cur_address, cur_line, set_address_list);
         }
 
         uint64_t HybridSystem::LRUVictim(uint64_t set_index, uint64_t addr, uint64_t cur_address, cache_line cur_line, list<uint64_t> set_address_list)
+        {
+	        uint64_t victim = *(set_address_list.begin());
+		uint64_t min_ts = (uint64_t) 18446744073709551615U; // Max uint64_t
+		bool min_init = false;
+
+		if (DEBUG_VICTIM)
+		{
+			debug_victim << "--------------------------------------------------------------------\n";
+			debug_victim << currentClockCycle << ": new miss. time to pick the unlucky line.\n";
+			debug_victim << "set: " << set_index << "\n";
+			debug_victim << "new flash addr: 0x" << hex << addr << dec << "\n";
+			debug_victim << "new tag: " << TAG(addr)<< "\n";
+			debug_victim << "scanning set address list...\n\n";
+		}
+
+		uint64_t victim_counter = 0;
+		uint64_t victim_set_offset = 0;
+		for (list<uint64_t>::iterator it=set_address_list.begin(); it != set_address_list.end(); it++)
+		{
+			cur_address = *it;
+			cur_line = cache[cur_address];
+
+			if (DEBUG_VICTIM)
+			{
+				debug_victim << "cur_address= 0x" << hex << cur_address << dec << "\n";
+				debug_victim << "cur_tag= " << cur_line.tag << "\n";
+				debug_victim << "dirty= " << cur_line.dirty << "\n";
+				debug_victim << "valid= " << cur_line.valid << "\n";
+				debug_victim << "ts= " << cur_line.ts << "\n";
+				debug_victim << "min_ts= " << min_ts << "\n\n";
+			}
+
+			// If the current line is the least recent we've seen so far, then select it.
+			// But do not select it if the line is locked.
+			if (((cur_line.ts < min_ts) || (!min_init)) && (!cur_line.locked))
+			{
+				victim = cur_address;	
+				min_ts = cur_line.ts;
+				min_init = true;
+
+				victim_set_offset = victim_counter;
+				if (DEBUG_VICTIM)
+				{
+					debug_victim << "FOUND NEW MINIMUM!\n\n";
+				}
+			}
+
+			victim_counter++;
+			
+		}
+
+		if (DEBUG_VICTIM)
+		{
+			debug_victim << "Victim in set_offset: " << victim_set_offset << "\n\n";
+		}
+		
+		return victim;
+	}
+
+	uint64_t HybridSystem::NRUVictim(uint64_t set_index, uint64_t addr, uint64_t cur_address, cache_line cur_line, list<uint64_t> set_address_list)
         {
 	        uint64_t victim = *(set_address_list.begin());
 		uint64_t min_ts = (uint64_t) 18446744073709551615U; // Max uint64_t
@@ -1293,9 +1356,13 @@ namespace HybridSim {
 
         uint64_t HybridSystem::CFLRUVictim(uint64_t set_index, uint64_t addr, uint64_t cur_address, cache_line cur_line, list<uint64_t> set_address_list)
         {
-	        uint64_t victim = *(set_address_list.begin());
+	        uint64_t victim = *(set_address_list.begin());		
 		uint64_t min_ts = (uint64_t) 18446744073709551615U; // Max uint64_t
 		bool min_init = false;
+
+		// because there might not always be a clean page
+		uint64_t dirty_victim = *(set_address_list.begin());
+		uint64_t dirty_min_ts = (uint64_t) 18446744073709551615U; // Max uint64_t
 
 		if (DEBUG_VICTIM)
 		{
@@ -1309,6 +1376,7 @@ namespace HybridSim {
 
 		uint64_t victim_counter = 0;
 		uint64_t victim_set_offset = 0;
+		uint64_t dirty_victim_set_offset = 0;
 		for (list<uint64_t>::iterator it=set_address_list.begin(); it != set_address_list.end(); it++)
 		{
 			cur_address = *it;
@@ -1326,7 +1394,7 @@ namespace HybridSim {
 
 			// If the current line is the least recent we've seen so far, then select it.
 			// But do not select it if the line is locked.
-			if ((((cur_line.ts < min_ts) && (!cur_line.dirty))|| (!min_init)) && (!cur_line.locked))
+			if ((((cur_line.ts < min_ts) && (!cur_line.dirty)) || (!min_init)) && (!cur_line.locked))
 			{
 				victim = cur_address;	
 				min_ts = cur_line.ts;
@@ -1338,17 +1406,47 @@ namespace HybridSim {
 					debug_victim << "FOUND NEW MINIMUM!\n\n";
 				}
 			}
+			// see if this good besides it being dirty
+			else if (((cur_line.ts < dirty_min_ts) || (!min_init)) && (!cur_line.locked))
+			{
+				dirty_victim = cur_address;
+				dirty_min_ts = cur_line.ts;
+
+				dirty_victim_set_offset = victim_counter;
+				if (DEBUG_VICTIM)
+				{
+					debug_victim << "FOUND NEW DIRTY MINIMUM!\n\n";
+				}
+			}
 
 			victim_counter++;
 			
 		}
 
-		if (DEBUG_VICTIM)
-		{
-			debug_victim << "Victim in set_offset: " << victim_set_offset << "\n\n";
-		}
 		
-		return victim;
+		// now we see if we actually found a clean page to replace, if the clean victim is the same as the starting page
+		// then we know that we should consider the dirty min instead
+		if(victim == *(set_address_list.begin()) && cache[victim].dirty)
+		{
+			if (DEBUG_VICTIM)
+			{
+				debug_victim << "Victim in set_offset: " << dirty_victim_set_offset << "\n\n";
+			}
+
+			return dirty_victim;
+		}
+		else
+		{
+			if (DEBUG_VICTIM)
+			{
+				debug_victim << "Victim in set_offset: " << victim_set_offset << "\n\n";
+			}
+
+			return victim;
+		}
+
+		abort();
+		return 0; // should never get here
 	}
 
         uint64_t HybridSystem::CFLFUVictim(uint64_t set_index, uint64_t addr, uint64_t cur_address, cache_line cur_line, list<uint64_t> set_address_list)
@@ -1356,6 +1454,10 @@ namespace HybridSim {
 	        uint64_t victim = *(set_address_list.begin());
 		uint64_t min_access_count = (uint64_t) 18446744073709551615U; // Max uint64_t
 		bool min_init = false;
+
+		// because there might not always be a clean page
+		uint64_t dirty_victim = *(set_address_list.begin());
+		uint64_t dirty_min_access_count = (uint64_t) 18446744073709551615U; // Max uint64_t
 
 		if (DEBUG_VICTIM)
 		{
@@ -1369,6 +1471,7 @@ namespace HybridSim {
 
 		uint64_t victim_counter = 0;
 		uint64_t victim_set_offset = 0;
+		uint64_t dirty_victim_set_offset = 0;
 		for (list<uint64_t>::iterator it=set_address_list.begin(); it != set_address_list.end(); it++)
 		{
 			cur_address = *it;
@@ -1399,17 +1502,45 @@ namespace HybridSim {
 					debug_victim << "FOUND NEW MINIMUM!\n\n";
 				}
 			}
+			// see if this good besides it being dirty
+			else if (((cur_line.access_count < dirty_min_access_count) || (!min_init)) && (!cur_line.locked))
+			{
+				dirty_victim = cur_address;
+				dirty_min_access_count = cur_line.access_count;
+
+				dirty_victim_set_offset = victim_counter;
+				if (DEBUG_VICTIM)
+				{
+					debug_victim << "FOUND NEW DIRTY MINIMUM!\n\n";
+				}
+			}
 
 			victim_counter++;
 			
 		}
 
-		if (DEBUG_VICTIM)
+		// now we see if we actually found a clean page to replace, if the clean victim is the same as the starting page
+		// then we know that we should consider the dirty min instead
+		if(victim == *(set_address_list.begin()) && cache[victim].dirty)
 		{
-			debug_victim << "Victim in set_offset: " << victim_set_offset << "\n\n";
+			if (DEBUG_VICTIM)
+			{
+				debug_victim << "Victim in set_offset: " << dirty_victim_set_offset << "\n\n";
+			}
+
+			return dirty_victim;
 		}
-		
-		return victim;
+		else
+		{
+			if (DEBUG_VICTIM)
+			{
+				debug_victim << "Victim in set_offset: " << victim_set_offset << "\n\n";
+			}
+
+			return victim;
+		}
+		abort();
+		return 0; // should never get here
         }
 
 	uint64_t HybridSystem::RandomVictim(uint64_t set_index, uint64_t addr, uint64_t cur_address, cache_line cur_line, list<uint64_t> set_address_list)

@@ -109,17 +109,21 @@ namespace HybridSim
 		// PaulMod: Replacement Policy Functions
 		uint64_t VictimSelect(uint64_t set_index, uint64_t addr, uint64_t cur_address, cache_line cur_line, list<uint64_t> set_address_list);
 		uint64_t LRUVictim(uint64_t set_index, uint64_t addr, uint64_t cur_address, cache_line cur_line, list<uint64_t> set_address_list);
+		uint64_t NRUVictim(uint64_t set_index, uint64_t addr, uint64_t cur_address, cache_line cur_line, list<uint64_t> set_address_list);
 		uint64_t CFLRUVictim(uint64_t set_index, uint64_t addr, uint64_t cur_address, cache_line cur_line, list<uint64_t> set_address_list);
 		uint64_t LFUVictim(uint64_t set_index, uint64_t addr, uint64_t cur_address, cache_line cur_line, list<uint64_t> set_address_list);
 		uint64_t CFLFUVictim(uint64_t set_index, uint64_t addr, uint64_t cur_address, cache_line cur_line, list<uint64_t> set_address_list);
 		uint64_t RandomVictim(uint64_t set_index, uint64_t addr, uint64_t cur_address, cache_line cur_line, list<uint64_t> set_address_list);
+		uint64_t BIPVictim(uint64_t set_index, uint64_t addr, uint64_t cur_address, cache_line cur_line, list<uint64_t> set_address_list);
+		uint64_t DIPVictim(uint64_t set_index, uint64_t addr, uint64_t cur_address, cache_line cur_line, list<uint64_t> set_address_list);
+		uint64_t RRIPVictim(uint64_t set_index, uint64_t addr, uint64_t cur_address, cache_line cur_line, list<uint64_t> set_address_list);
 
 
 		// Page Contention Functions
 		void contention_lock(uint64_t flash_addr);
 		void contention_page_lock(uint64_t flash_addr);
 		void contention_unlock(uint64_t flash_addr, uint64_t orig_addr, string operation, bool victim_valid, uint64_t victim_page, 
-				bool cache_line_valid, uint64_t cache_addr);
+				       bool cache_line_valid, uint64_t cache_addr);
 		bool contention_is_unlocked(uint64_t flash_addr);
 		void contention_increment(uint64_t flash_addr);
 		void contention_decrement(uint64_t flash_addr);
