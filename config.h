@@ -195,6 +195,10 @@ enum ReplacementPolicy
 extern string REPLACEMENT_POLICY;
 extern ReplacementPolicy replacementPolicy;
 
+// constant delay timings
+extern uint64_t CACHE_DELAY;
+extern uint64_t BACK_DELAY;
+
 // Defined in marss memoryHierachy.cpp.
 // Need to confirm this and make it more flexible later.
 extern uint64_t CYCLES_PER_SECOND;

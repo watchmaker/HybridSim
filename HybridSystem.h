@@ -186,6 +186,11 @@ namespace HybridSim
 		uint64_t trans_queue_max;
 		uint64_t trans_queue_size;
 
+		// constant delay variables
+		// queues that hold the ending clock cycle of pending operations
+		list<uint64_t> cache_trans;
+		list<uint64_t> back_trans;
+
 		list<Transaction> trans_queue; // Entry queue for the cache controller.
 		list<Transaction> dram_queue; // Buffer to wait for DRAM
 		list<Transaction> flash_queue; // Buffer to wait for Flash

@@ -68,28 +68,6 @@ namespace HybridSim {
 		assert(CACHE_PAGES >= SET_SIZE);
 
 		systemID = id;
-		cerr << "Creating DRAM with " << dram_ini << "\n";
-		uint64_t dram_size = (CACHE_PAGES * PAGE_SIZE) >> 20;
-		dram_size = (dram_size == 0) ? 1 : dram_size; // DRAMSim requires a minimum of 1 MB, even if HybridSim isn't going to use it.
-		dram_size = (OVERRIDE_DRAM_SIZE == 0) ? dram_size : OVERRIDE_DRAM_SIZE; // If OVERRIDE_DRAM_SIZE is non-zero, then use it.
-		dram = DRAMSim::getMemorySystemInstance(dram_ini, sys_ini, inipathPrefix, "resultsfilename", dram_size);
-
-		cerr << "Creating Flash with " << flash_ini << "\n";
-		flash = NVDSim::getNVDIMMInstance(1,flash_ini,"ini/def_system.ini",inipathPrefix,"");
-		cerr << "Done with creating memories" << endl;
-
-		// Set up the callbacks for DRAM.
-		typedef DRAMSim::Callback <HybridSystem, void, uint, uint64_t, uint64_t> dramsim_callback_t;
-		DRAMSim::TransactionCompleteCB *read_cb = new dramsim_callback_t(this, &HybridSystem::DRAMReadCallback);
-		DRAMSim::TransactionCompleteCB *write_cb = new dramsim_callback_t(this, &HybridSystem::DRAMWriteCallback);
-		dram->RegisterCallbacks(read_cb, write_cb, NULL);
-
-		// Set up the callbacks for NVDIMM.
-		typedef NVDSim::Callback <HybridSystem, void, uint64_t, uint64_t, uint64_t, bool> nvdsim_callback_t;
-		NVDSim::Callback_t *nv_read_cb = new nvdsim_callback_t(this, &HybridSystem::FlashReadCallback);
-		NVDSim::Callback_t *nv_write_cb = new nvdsim_callback_t(this, &HybridSystem::FlashWriteCallback);
-		NVDSim::Callback_t *nv_crit_cb = new nvdsim_callback_t(this, &HybridSystem::FlashCriticalLineCallback);
-		flash->RegisterCallbacks(nv_read_cb, nv_crit_cb, nv_write_cb, NULL);
 
 		// Need to check the queue when we start.
 		check_queue = true;
@@ -341,47 +319,37 @@ namespace HybridSim {
 		// Process DRAM transaction queue until it is empty or addTransaction returns false.
 		// Note: This used to be a while, but was changed ot an if to only allow one
 		// transaction to be sent to the DRAM per cycle.
-		bool not_full = true;
-		if (not_full && !dram_queue.empty())
+		// PaulMod: This will just add a clock cycle to a list to simulate a constant delay instead of
+		// calling the other simulators
+		if (!dram_queue.empty())
 		{
-			Transaction tmp = dram_queue.front();
-			bool isWrite;
-			if (tmp.transactionType == DATA_WRITE)
-				isWrite = true;
-			else
-				isWrite = false;
-			not_full = dram->addTransaction(isWrite, tmp.address);
-			if (not_full)
-			{
-				dram_queue.pop_front();
-				dram_pending_set.insert(tmp.address);
-			}
+			// figure out when this will be done
+			uint64_t completed_cache_cycle = currentClockCycle + CACHE_DELAY;
+			// add that clock cycle to the list
+			cache_trans.push_back(completed_cycle);
+		      
+			dram_queue.pop_front();
+			dram_pending_set.insert(tmp.address);
 		}
 
 		// Process Flash transaction queue until it is empty or addTransaction returns false.
 		// Note: This used to be a while, but was changed ot an if to only allow one
 		// transaction to be sent to the flash per cycle.
-		not_full = true;
-		if (not_full && !flash_queue.empty())
+		// PaulMod: Again here we're just inserting constant delays into a list instead of using
+		// an complex external simulator
+		if (!flash_queue.empty())
 		{
-			bool isWrite;
+			// figure out when this will be done
+			uint64_t completed_back_cycle = currentClockCycle + BACK_DELAY;
+			// add that clock cycle to the list
+			back_trans.push_back(completed_cycle);
 
-			Transaction tmp = flash_queue.front();
-			if (tmp.transactionType == DATA_WRITE)
-				isWrite = true;
-			else
-				isWrite = false;
-			not_full = flash->addTransaction(isWrite, tmp.address);
-
-			if (not_full)
+			flash_queue.pop_front();
+			
+			if (DEBUG_NVDIMM_TRACE)
 			{
-				flash_queue.pop_front();
-
-				if (DEBUG_NVDIMM_TRACE)
-				{
-					debug_nvdimm_trace << currentClockCycle << " " << (isWrite ? 1 : 0) << " " << tmp.address << "\n";
-					debug_nvdimm_trace.flush();
-				}
+				debug_nvdimm_trace << currentClockCycle << " " << " " << tmp.address << "\n";
+				debug_nvdimm_trace.flush();
 			}
 		}
 
@@ -397,6 +365,8 @@ namespace HybridSim {
 			log.update();
 
 		// Update the memories.
+		// PaulMod: Instead of updating the memories here we're going to see if we've competed
+		// something and then call the appropriate callback right here
 		dram->update();
 		flash->update();
 

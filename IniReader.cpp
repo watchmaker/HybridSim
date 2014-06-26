@@ -66,6 +66,10 @@ uint64_t CACHE_PAGES = 1048576/4; // 1 GB
 string REPLACEMENT_POLICY;
 ReplacementPolicy replacementPolicy;
 
+// PaulMod: Constant Delay Timings (in cycles)
+uint64_t CACHE_DELAY = 50; //75ns
+uint64_t BACK_DELAY = 16556; //25000ns
+
 // Defined in marss memoryHierachy.cpp.
 // Need to confirm this and make it more flexible later.
 uint64_t CYCLES_PER_SECOND = 667000000;
@@ -192,6 +196,10 @@ string NVDIMM_SAVE_FILE = "none";
 				  replacementPolicy = lru;
 				}
 			}
+			else if (key.compare("CACHE_DELAY") == 0)
+				convert_uint64_t(CACHE_DELAY, value, key);
+			else if (key.compare("BACK_DELAY") == 0)
+				convert_uint64_t(BACK_DELAY, value, key);
 			else if (key.compare("CYCLES_PER_SECOND") == 0)
 				convert_uint64_t(CYCLES_PER_SECOND, value, key);
 			else if (key.compare("dram_ini") == 0)
