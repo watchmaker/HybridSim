@@ -323,13 +323,17 @@ namespace HybridSim {
 		// calling the other simulators
 		if (!dram_queue.empty())
 		{
-			// figure out when this will be done
-			uint64_t completed_cache_cycle = currentClockCycle + CACHE_DELAY;
+			// create a copy fo the transaction to go on the runing queue
+		        Transaction temp_trans = Transaction(dram_queue.front().transactionType, dram_queue.front().address, dram_queue.front().data);
+
+			// figure out when this will be done and add that delay to our new trans
+			temp_trans.done_cycle = currentClockCycle + CACHE_DELAY;		
+		 
 			// add that clock cycle to the list
-			cache_trans.push_back(completed_cycle);
+			cache_running_queue.push_back(temp_trans);
 		      
 			dram_queue.pop_front();
-			dram_pending_set.insert(tmp.address);
+			dram_pending_set.insert(temp_trans.address);
 		}
 
 		// Process Flash transaction queue until it is empty or addTransaction returns false.
@@ -339,16 +343,20 @@ namespace HybridSim {
 		// an complex external simulator
 		if (!flash_queue.empty())
 		{
-			// figure out when this will be done
-			uint64_t completed_back_cycle = currentClockCycle + BACK_DELAY;
+			// create a copy fo the transaction to go on the runing queue
+		        Transaction temp_trans = Transaction(flash_queue.front().transactionType, flash_queue.front().address, flash_queue.front().data);
+
+			// figure out when this will be done and add that delay to our new trans
+			temp_trans.done_cycle = currentClockCycle + BACK_DELAY;		
+		 
 			// add that clock cycle to the list
-			back_trans.push_back(completed_cycle);
+			back_running_queue.push_back(temp_trans);
 
 			flash_queue.pop_front();
 			
 			if (DEBUG_NVDIMM_TRACE)
 			{
-				debug_nvdimm_trace << currentClockCycle << " " << " " << tmp.address << "\n";
+				debug_nvdimm_trace << currentClockCycle << " " << " " << temp_trans.address << "\n";
 				debug_nvdimm_trace.flush();
 			}
 		}
@@ -367,8 +375,53 @@ namespace HybridSim {
 		// Update the memories.
 		// PaulMod: Instead of updating the memories here we're going to see if we've competed
 		// something and then call the appropriate callback right here
-		dram->update();
-		flash->update();
+		// Check cache list
+		if(!cache_running_queue.empty())
+		{
+			// if its time fo this operation to be done, call the appropriate callback
+			if(cache_running_queue.front().done_cycle <= currentClockCycle)
+			{
+				if(cache_running_queue.front().transactionType == DATA_READ)
+				{
+					DRAMReadCallback(0, cache_running_queue.front().address, currentClockCycle);
+				}
+				else if(cache_running_queue.front().transactionType == DATA_WRITE)
+				{
+					DRAMWriteCallback(0, cache_running_queue.front().address, currentClockCycle);
+				}
+				else
+				{
+					cout << "got a transaction that was something other than a read or a write \n";
+				}
+
+				// remove this transaction from the queue because it is now complete
+				cache_running_queue.pop_front();			
+			}
+		}
+
+		// Check Back list
+		if(!back_running_queue.empty())
+		{
+			// if its time fo this operation to be done, call the appropriate callback
+			if(back_running_queue.front().done_cycle <= currentClockCycle)
+			{
+				if(back_running_queue.front().transactionType == DATA_READ)
+				{
+					FlashReadCallback(0, back_running_queue.front().address, currentClockCycle, false);
+				}
+				else if(back_running_queue.front().transactionType == DATA_WRITE)
+				{
+					FlashWriteCallback(0, back_running_queue.front().address, currentClockCycle, false);
+				}
+				else
+				{
+					cout << "got a transaction that was something other than a read or a write \n";
+				}
+
+				// remove this transaction from the queue because it is now complete
+				back_running_queue.pop_front();			
+			}
+		}
 
 		// Increment the cycle count.
 		step();
@@ -1669,7 +1722,7 @@ namespace HybridSim {
 			log.print();
 		
 			// Tell NVDIMM to print logs now
-			flash->saveStats();
+			//flash->saveStats();
 		}
 	}
 
@@ -1768,7 +1821,7 @@ namespace HybridSim {
 		
 			inFile.close();
 
-			flash->loadNVState(NVDIMM_RESTORE_FILE);
+			//flash->loadNVState(NVDIMM_RESTORE_FILE);
 		}
 	}
 

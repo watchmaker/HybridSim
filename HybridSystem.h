@@ -188,8 +188,8 @@ namespace HybridSim
 
 		// constant delay variables
 		// queues that hold the ending clock cycle of pending operations
-		list<uint64_t> cache_trans;
-		list<uint64_t> back_trans;
+		list<Transaction> cache_running_queue;
+		list<Transaction> back_running_queue;
 
 		list<Transaction> trans_queue; // Entry queue for the cache controller.
 		list<Transaction> dram_queue; // Buffer to wait for DRAM
