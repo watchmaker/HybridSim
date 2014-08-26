@@ -155,10 +155,14 @@ namespace HybridSim {
 			prefetch_file.close();
 		}
 
+		// setup the concurrency stuff
+		cache_inflight = 0;
+		back_inflight = 0;
+
 		// Initialize size/max counters.
 		// Note: Some of this is just debug info, but I'm keeping it around because it is useful.
 		pending_count = 0; // This is used by TraceBasedSim for MAX_PENDING.
-		max_dram_pending = 0;
+		max_cache_pending = 0;
 		pending_pages_max = 0;
 		trans_queue_max = 0;
 		trans_queue_size = 0; // This is not debugging info.
@@ -229,10 +233,10 @@ namespace HybridSim {
 	void HybridSystem::update()
 	{
 		// Process the transaction queue.
-		// This will fill the dram_queue and flash_queue.
+		// This will fill the cache_queue and back_queue.
 
-		if (dram_pending.size() > max_dram_pending)
-			max_dram_pending = dram_pending.size();
+		if (cache_pending.size() > max_cache_pending)
+			max_cache_pending = cache_pending.size();
 		if (pending_pages.size() > pending_pages_max)
 			pending_pages_max = pending_pages.size();
 		if (trans_queue_size > trans_queue_max)
@@ -240,10 +244,10 @@ namespace HybridSim {
 
 		// Log the queue length.
 		bool idle = (trans_queue.empty()) && (pending_pages.empty());
-		bool flash_idle = (flash_queue.empty()) && (flash_pending.empty());
-		bool dram_idle = (dram_queue.empty()) && (dram_pending.empty());
+		bool back_idle = (back_queue.empty()) && (back_pending.empty());
+		bool cache_idle = (cache_queue.empty()) && (cache_pending.empty());
 		if (ENABLE_LOGGER)
-			log.access_update(trans_queue_size, idle, flash_idle, dram_idle);
+			log.access_update(trans_queue_size, idle, back_idle, cache_idle);
 
 
 		// See if there are any transactions ready to be processed.
@@ -263,15 +267,15 @@ namespace HybridSim {
 		while((it != trans_queue.end()) && (pending_pages.size() < NUM_SETS) && (check_queue) && (delay_counter == 0))
 		{
 			// Compute the page address.
-			uint64_t flash_addr = ALIGN((*it).address);
-			uint64_t page_addr = PAGE_ADDRESS(flash_addr);
+			uint64_t back_addr = ALIGN((*it).address);
+			uint64_t page_addr = PAGE_ADDRESS(back_addr);
 
 
 			// Check to see if this page is open under contention rules.
-			if (contention_is_unlocked(flash_addr))
+			if (contention_is_unlocked(back_addr))
 			{
 				// Lock the page.
-				contention_lock(flash_addr);
+				contention_lock(back_addr);
 
 				// Log the page access.
 				if (ENABLE_LOGGER)
@@ -286,7 +290,7 @@ namespace HybridSim {
 
 				// Check that this page is in the TLB.
 				// Do not do this for SYNC_ALL_COUNTER transactions because the page address refers
-				// to the cache line, not the flash page address, so the TLB isn't needed.
+				// to the cache line, not the back page address, so the TLB isn't needed.
 				if ((*it).transactionType != SYNC_ALL_COUNTER)
 					check_tlb(page_addr);
 
@@ -316,15 +320,15 @@ namespace HybridSim {
 		}
 
 
-		// Process DRAM transaction queue until it is empty or addTransaction returns false.
-		// Note: This used to be a while, but was changed ot an if to only allow one
-		// transaction to be sent to the DRAM per cycle.
+		// Process CACHE transaction queue until it is empty or addTransaction returns false.
+		// Note: This used to be a while, but was changed ot an if to only allow cache concur
+		// transactions to be sent to the CACHE per cycle.
 		// PaulMod: This will just add a clock cycle to a list to simulate a constant delay instead of
 		// calling the other simulators
-		if (!dram_queue.empty())
+		if (!cache_queue.empty() && cache_inflight < CACHE_CONCUR)
 		{
 			// create a copy fo the transaction to go on the runing queue
-		        Transaction temp_trans = Transaction(dram_queue.front().transactionType, dram_queue.front().address, dram_queue.front().data);
+		        Transaction temp_trans = Transaction(cache_queue.front().transactionType, cache_queue.front().address, cache_queue.front().data);
 
 			// figure out when this will be done and add that delay to our new trans
 			temp_trans.done_cycle = currentClockCycle + CACHE_DELAY;		
@@ -332,19 +336,20 @@ namespace HybridSim {
 			// add that clock cycle to the list
 			cache_running_queue.push_back(temp_trans);
 		      
-			dram_queue.pop_front();
-			dram_pending_set.insert(temp_trans.address);
+			cache_queue.pop_front();
+			cache_pending_set.insert(temp_trans.address);
+			cache_inflight++;
 		}
 
-		// Process Flash transaction queue until it is empty or addTransaction returns false.
-		// Note: This used to be a while, but was changed ot an if to only allow one
-		// transaction to be sent to the flash per cycle.
+		// Process Back transaction queue until it is empty or addTransaction returns false.
+		// Note: This used to be a while, but was changed ot an if to only allow back concur
+		// transactions to be sent to the back per cycle.
 		// PaulMod: Again here we're just inserting constant delays into a list instead of using
 		// an complex external simulator
-		if (!flash_queue.empty())
+		if (!back_queue.empty() && back_inflight < BACK_CONCUR)
 		{
 			// create a copy fo the transaction to go on the runing queue
-		        Transaction temp_trans = Transaction(flash_queue.front().transactionType, flash_queue.front().address, flash_queue.front().data);
+		        Transaction temp_trans = Transaction(back_queue.front().transactionType, back_queue.front().address, back_queue.front().data);
 
 			// figure out when this will be done and add that delay to our new trans
 			temp_trans.done_cycle = currentClockCycle + BACK_DELAY;		
@@ -352,7 +357,8 @@ namespace HybridSim {
 			// add that clock cycle to the list
 			back_running_queue.push_back(temp_trans);
 
-			flash_queue.pop_front();
+			back_queue.pop_front();
+			back_inflight++;
 			
 			if (DEBUG_NVDIMM_TRACE)
 			{
@@ -376,18 +382,18 @@ namespace HybridSim {
 		// PaulMod: Instead of updating the memories here we're going to see if we've competed
 		// something and then call the appropriate callback right here
 		// Check cache list
-		if(!cache_running_queue.empty())
+		while(!cache_running_queue.empty())
 		{
 			// if its time fo this operation to be done, call the appropriate callback
 			if(cache_running_queue.front().done_cycle <= currentClockCycle)
 			{
 				if(cache_running_queue.front().transactionType == DATA_READ)
 				{
-					DRAMReadCallback(0, cache_running_queue.front().address, currentClockCycle);
+					CacheReadCallback(0, cache_running_queue.front().address, currentClockCycle);
 				}
 				else if(cache_running_queue.front().transactionType == DATA_WRITE)
 				{
-					DRAMWriteCallback(0, cache_running_queue.front().address, currentClockCycle);
+					CacheWriteCallback(0, cache_running_queue.front().address, currentClockCycle);
 				}
 				else
 				{
@@ -395,23 +401,28 @@ namespace HybridSim {
 				}
 
 				// remove this transaction from the queue because it is now complete
-				cache_running_queue.pop_front();			
+				cache_running_queue.pop_front();	
+				cache_inflight--;
+			}
+			else
+			{
+				break;
 			}
 		}
 
 		// Check Back list
-		if(!back_running_queue.empty())
+		while(!back_running_queue.empty())
 		{
 			// if its time fo this operation to be done, call the appropriate callback
 			if(back_running_queue.front().done_cycle <= currentClockCycle)
 			{
 				if(back_running_queue.front().transactionType == DATA_READ)
 				{
-					FlashReadCallback(0, back_running_queue.front().address, currentClockCycle, false);
+					BackReadCallback(0, back_running_queue.front().address, currentClockCycle, false);
 				}
 				else if(back_running_queue.front().transactionType == DATA_WRITE)
 				{
-					FlashWriteCallback(0, back_running_queue.front().address, currentClockCycle, false);
+					BackWriteCallback(0, back_running_queue.front().address, currentClockCycle, false);
 				}
 				else
 				{
@@ -419,7 +430,12 @@ namespace HybridSim {
 				}
 
 				// remove this transaction from the queue because it is now complete
-				back_running_queue.pop_front();			
+				back_running_queue.pop_front();	
+				back_inflight--;
+			}
+			else
+			{
+				break;
 			}
 		}
 
@@ -544,44 +560,63 @@ namespace HybridSim {
 		return true;
 	}
 
-	void HybridSystem::ProcessTransaction(Transaction &trans)
+
+	void HybridSystem::pushBack(Transaction &trans)
+	{
+		back_queue.push_back(trans);
+	}
+
+	void HybridSystem::pushCache(Transaction &trans, bool tag_lookup, uint64_t cache_addr)
+	{
+		// only do a parallel lookup for tag reads
+		if(assocStyle == channel && tag_lookup)
+		{
+			cache_pending_wait[cache_addr] = unordered_set<uint64_t>();
+			for(uint64_t i=0; i<SET_SIZE; i++)
+			{
+				// we adjust the addresses very slightly here to ensure that we can tell them apart
+				// in the contention locking code
+				uint64_t addr = trans.address + i;
+				cache_pending_wait[cache_addr].insert(addr);
+
+				Transaction t = Transaction(DATA_READ, addr, NULL);
+				cache_queue.push_back(t);			
+			}
+			// shouldn't need to delete anything here, the original trans should just disappear here
+		}
+		else
+		{
+			cache_queue.push_back(trans);
+		}
+	}
+
+	void HybridSystem::CheckHitMiss(Transaction &trans)
 	{
 		// trans.address is the original address that we must use to callback.
 		// But for our processing, we must use an aligned address (which is aligned to a page in the NV address space).
 		uint64_t addr = ALIGN(trans.address);
 
-
-		if (trans.transactionType == SYNC_ALL_COUNTER)
-		{
-			// SYNC_ALL_COUNTER transactions are handled elsewhere.
-			syncAllCounter(addr, trans);
-			return;
-		}
-
-
-		if (DEBUG_CACHE)
-			cerr << "\n" << currentClockCycle << ": " << "Starting transaction for address " << addr << endl;
-
-
-		if (addr >= (TOTAL_PAGES * PAGE_SIZE))
-		{
-			// Note: This should be technically impossible due to the modulo in ALIGN. But this is just a sanity check.
-			cerr << "ERROR: Address out of bounds - orig:" << trans.address << " aligned:" << addr << "\n";
-			abort();
-		}
-
 		// Compute the set number and tag
 		uint64_t set_index = SET_INDEX(addr);
 		uint64_t tag = TAG(addr);
 
-		if(ENABLE_LOGGER)
-			log.access_set(set_index);
+		if(DEBUG_CACHE_ADDRESSES)
+		{
+			debug_cache_addresses << "=================================================\n";
+			debug_cache_addresses << "address is: " << addr << "\n"; 
+			debug_cache_addresses << "set index is " << set_index << "\n";
+			debug_cache_addresses << "address list is : \n";
+		}
 
-		// Generating the set list for this set
 		list<uint64_t> set_address_list;
 		for (uint64_t i=0; i<SET_SIZE; i++)
 		{
 			uint64_t next_address = (i * NUM_SETS + set_index) * PAGE_SIZE;
+			if(DEBUG_CACHE_ADDRESSES)
+			{
+				debug_cache_addresses << "NUM_SETS is " << NUM_SETS << " set_index is " << set_index << " PAGE_SIZE is " << PAGE_SIZE << "\n";
+				debug_cache_addresses << "way " << i << " address is: " << next_address << " (hex: " << hex << next_address << dec << " )\n";
+			}
 			set_address_list.push_back(next_address);
 		}
 
@@ -599,8 +634,7 @@ namespace HybridSim {
 			}
 
 			cur_line = cache[cur_address];
-			
-			// Found a match so its a hit
+
 			if (cur_line.valid && (cur_line.tag == tag))
 			{
 				hit = true;
@@ -620,6 +654,7 @@ namespace HybridSim {
 		// Place access_process here and combine it with access_cache.
 		// Tell the logger when the access is processed (used for timing the time in queue).
 		// Only do this for DATA_READ and DATA_WRITE.
+		//cout << "trans address is in hit miss: " << trans.address << "\n";
 		if ((ENABLE_LOGGER) && ((trans.transactionType == DATA_READ) || (trans.transactionType == DATA_WRITE)))
 			log.access_process(trans.address, trans.transactionType == DATA_READ, hit);
 
@@ -650,7 +685,6 @@ namespace HybridSim {
 			}
 		}
 
-
 		if (hit)
 		{
 			// Lock the line that was hit (so it cannot be selected as a victim while being processed).
@@ -661,10 +695,29 @@ namespace HybridSim {
 			{
 				stream_buffer_hit_handler(PAGE_ADDRESS(addr));
 			}
-
+			
 			// Issue operation to the DRAM.
 			if (trans.transactionType == DATA_READ)
-				CacheRead(trans.address, addr, cache_address);
+			{
+				if(assocStyle == tag_tlb)
+				{
+					CacheRead(trans.address, addr, cache_address, trans);
+				}
+				// if we're doing direct mapped in dram tags we don't need to issue any reads here
+				// we already issued a read to see if the data was in the cache
+				// instead we're just done now
+			    else
+				{
+					// Read operation has completed, call the top level callback.
+					// Only do this if it hasn't been sent already by the critical cache line first callback.
+					// Also, do not do this for prefetch since it does not have an external caller waiting on it.
+					// PaulMod: neither prefetches or critical line first should happen right now
+					// Erase the page from the pending set.
+					contention_unlock(addr, trans.address, "CACHE_READ", false, 0, true, cache_address);
+					ReadDoneCallback(systemID, trans.address, currentClockCycle);
+				}
+			}
+			// we do need to issue all writes though
 			else if(trans.transactionType == DATA_WRITE)
 				CacheWrite(trans.address, addr, cache_address);
 			else if(trans.transactionType == FLUSH)
@@ -674,8 +727,8 @@ namespace HybridSim {
 			else if(trans.transactionType == PREFETCH)
 			{
 				// Prefetch hits are just NOPs.
-				uint64_t flash_address = addr;
-				contention_unlock(flash_address, flash_address, "PREFETCH (hit)", false, 0, true, cache_address);
+				uint64_t back_address = addr;
+				contention_unlock(back_address, back_address, "PREFETCH (hit)", false, 0, true, cache_address);
 
 				prefetch_hit_nops++;
 
@@ -701,8 +754,8 @@ namespace HybridSim {
 			if(trans.transactionType == FLUSH)
 			{
 				// We allow FLUSH to miss the cache because of non-determinism from marss.
-				uint64_t flash_address = addr;
-				contention_unlock(flash_address, flash_address, "FLUSH (miss)", false, 0, false, 0);
+				uint64_t back_address = addr;
+				contention_unlock(back_address, back_address, "FLUSH (miss)", false, 0, false, 0);
 
 				// TODO: Add some logging for this event.
 
@@ -728,16 +781,15 @@ namespace HybridSim {
 
 			// Log the victim, set, etc.
 			// THIS MUST HAPPEN AFTER THE CUR_LINE IS SET TO THE VICTIM LINE.
-			uint64_t victim_flash_addr = FLASH_ADDRESS(cur_line.tag, set_index);
+			uint64_t victim_back_addr = BACK_ADDRESS(cur_line.tag, set_index);
 			if ((ENABLE_LOGGER) && ((trans.transactionType == DATA_READ) || (trans.transactionType == DATA_WRITE)))
-				log.access_miss(PAGE_ADDRESS(addr), victim_flash_addr, set_index, cache_address, cur_line.dirty, cur_line.valid);
-
+				log.access_miss(PAGE_ADDRESS(addr), victim_back_addr, set_index, cache_address, cur_line.dirty, cur_line.valid);
 
 			// Lock the victim page so it will not be selected for eviction again during the processing of this
 			// transaction's miss and so further transactions to this page cannot happen.
 			// Only lock it if the cur_line is valid.
 			if (cur_line.valid)
-				contention_victim_lock(victim_flash_addr);
+				contention_victim_lock(victim_back_addr);
 
 			// Lock the cache line so no one else tries to use it while this miss is being serviced.
 			contention_cache_line_lock(cache_address);
@@ -761,7 +813,7 @@ namespace HybridSim {
 
 			Pending p;
 			p.orig_addr = trans.address;
-			p.flash_addr = addr;
+			p.back_addr = addr;
 			p.cache_addr = cache_address;
 			p.victim_tag = cur_line.tag;
 			p.victim_valid = cur_line.valid;
@@ -780,46 +832,147 @@ namespace HybridSim {
 		}
 	}
 
+	void HybridSystem::ProcessTransaction(Transaction &trans)
+	{
+		// trans.address is the original address that we must use to callback.
+		// But for our processing, we must use an aligned address (which is aligned to a page in the NV address space).
+		uint64_t addr = ALIGN(trans.address);
+
+
+		if (trans.transactionType == SYNC_ALL_COUNTER)
+		{
+			// SYNC_ALL_COUNTER transactions are handled elsewhere.
+			syncAllCounter(addr, trans);
+			return;
+		}
+
+
+		if (DEBUG_CACHE)
+			cerr << "\n" << currentClockCycle << ": " << "Starting transaction for address " << addr << endl;
+
+
+		if (addr >= (TOTAL_PAGES * PAGE_SIZE))
+		{
+			// Note: This should be technically impossible due to the modulo in ALIGN. But this is just a sanity check.
+			cerr << "ERROR: Address out of bounds - orig:" << trans.address << " aligned:" << addr << "\n";
+			abort();
+		}
+
+		
+
+		// otherwise we assume all tags are stored in an SRAM and can just check immediately
+		if(assocStyle == tag_tlb)				
+		{
+			CheckHitMiss(trans);
+		}
+		// we're simulating storing the tags in dram, so we have to access dram first and then see if the tag is what we're looking for
+		else
+		{
+			// Compute the set number and tag
+			uint64_t set_index = SET_INDEX(addr);
+			
+			if(DEBUG_CACHE_ADDRESSES)
+			{
+				debug_cache_addresses << "=================================================\n";
+				debug_cache_addresses << "address is: " << addr << "\n"; 
+				debug_cache_addresses << "set index is " << set_index << "\n";
+				debug_cache_addresses << "address list is : \n";
+			}
+
+			uint64_t cache_address = (NUM_SETS + set_index) * PAGE_SIZE;
+			if(DEBUG_CACHE_ADDRESSES)
+			{
+				debug_cache_addresses << "NUM_SETS is " << NUM_SETS << " set_index is " << set_index << " PAGE_SIZE is " << PAGE_SIZE << "\n";
+				debug_cache_addresses << "way 0  address is: " << cache_address << " (hex: " << hex << cache_address << dec << " )\n";
+			}
+			
+			contention_cache_line_lock(cache_address);
+			CacheRead(trans.address, addr, cache_address, trans);
+		}
+	}
+
+	// just a helper function to prevent duplicate code in victimread that deals with the situation
+	// where we don't have to a victim read cause we got the data when we did the tag lookup
+	void HybridSystem::AlreadyVictimRead(Pending p)
+	{
+		uint64_t data_addr = p.cache_addr + PAGE_OFFSET(p.back_addr);
+		cache_pending.erase(p.cache_addr);
+		VictimReadFinish(p.orig_addr, p);
+		cache_pending_set.erase(data_addr);
+	}
+	
 	void HybridSystem::VictimRead(Pending p)
 	{
 		if (DEBUG_CACHE)
-			cerr << currentClockCycle << ": " << "Performing VICTIM_READ for (" << p.flash_addr << ", " << p.cache_addr << ")\n";
+			cerr << currentClockCycle << ": " << "Performing VICTIM_READ for (" << p.back_addr << ", " << p.cache_addr << ")\n";
 
-		// flash_addr is the original Flash address requested from the top level Transaction.
-		// victim is the base address of the DRAM page to read.
-		// victim_tag is the cache tag for the victim page (used to compute the victim's flash address).
+		// back_addr is the original Back address requested from the top level Transaction.
+		// victim is the base address of the CACHE page to read.
+		// victim_tag is the cache tag for the victim page (used to compute the victim's back address).
 
 		// Increment the pending set/page counter (this is used to ensure that the pending set/page entry isn't removed until both LineRead
 		// and VictimRead (if needed) are completely done.
-		contention_increment(p.flash_addr);
+		contention_increment(p.back_addr);
 
-#if SINGLE_WORD
-		// Schedule a read from DRAM to get the line being evicted.
-		Transaction t = Transaction(DATA_READ, p.cache_addr, NULL);
-		dram_queue.push_back(t);
-#else
-		// Schedule reads for the entire page.
-		dram_pending_wait[p.cache_addr] = unordered_set<uint64_t>();
-		for(uint64_t i=0; i<PAGE_SIZE/BURST_SIZE; i++)
-		{
-			uint64_t addr = p.cache_addr + i*BURST_SIZE;
-			dram_pending_wait[p.cache_addr].insert(addr);
-			Transaction t = Transaction(DATA_READ, addr, NULL);
-			dram_queue.push_back(t);
-		}
-#endif
-
-		// Add a record in the DRAM's pending table.
+				// Add a record in the DRAM's pending table.
 		p.op = VICTIM_READ;
-		assert(dram_pending.count(p.cache_addr) == 0);
-		dram_pending[p.cache_addr] = p;
+		assert(cache_pending.count(p.cache_addr) == 0);
+		cache_pending[p.cache_addr] = p;
+
+		if(assocStyle == tag_tlb)
+		{
+#if SINGLE_WORD
+			// Schedule a read from DRAM to get the line being evicted.
+			Transaction t = Transaction(DATA_READ, p.cache_addr, NULL);
+			pushCache(t, false, p.cache_addr);
+#else
+			// Schedule reads for the entire page.
+			cache_pending_wait[p.cache_addr] = unordered_set<uint64_t>();
+			for(uint64_t i=0; i<PAGE_SIZE/BURST_SIZE; i++)
+			{
+				uint64_t addr = p.cache_addr + i*BURST_SIZE;
+				cache_pending_wait[p.cache_addr].insert(addr);
+				Transaction t = Transaction(DATA_READ, addr, NULL);
+				pushCache(t, false, p.cache_addr);
+			}
+#endif
+		}
+		else
+		{
+#if SINGLE_WORD
+			// don't need to do this cause we already read
+			// just go directly the victim read finish
+			// Remove this pending object from cache_pending
+			// reconstructing the pending addr
+			AlreadyVictimRead(p);
+#else
+			// Schedule reads for the entire page.
+			// one lses than the other case cause we've alread read one of the pages to get the tags
+			cache_pending_wait[p.cache_addr] = unordered_set<uint64_t>();
+			if(PAGE_SIZE/BURST_SIZE > 1)
+			{
+				for(uint64_t i=1; i<PAGE_SIZE/BURST_SIZE; i++)
+				{
+					uint64_t addr = p.cache_addr + i*BURST_SIZE;
+					cache_pending_wait[p.cache_addr].insert(addr);
+					Transaction t = Transaction(DATA_READ, addr, NULL);
+					pushCache(t, false, p.cache_addr);
+				}
+			}
+			// if there was just one read per page anyway, then we've already read that and we're done
+			else
+			{
+				AlreadyVictimRead(p);
+			}
+#endif
+		}
 	}
 
 	void HybridSystem::VictimReadFinish(uint64_t addr, Pending p)
 	{
 		if (DEBUG_CACHE)
 		{
-			cerr << currentClockCycle << ": " << "VICTIM_READ callback for (" << p.flash_addr << ", " << p.cache_addr << ") offset="
+			cerr << currentClockCycle << ": " << "VICTIM_READ callback for (" << p.back_addr << ", " << p.cache_addr << ") offset="
 				<< PAGE_OFFSET(addr);
 		}
 
@@ -830,63 +983,63 @@ namespace HybridSim {
 		uint64_t cache_page_addr = p.cache_addr;
 
 		if (DEBUG_CACHE)
-			cerr << " num_left=" << dram_pending_wait[cache_page_addr].size() << "\n"; 
+			cerr << " num_left=" << cache_pending_wait[cache_page_addr].size() << "\n"; 
 
 		// Remove the read that just finished from the wait set.
-		dram_pending_wait[cache_page_addr].erase(addr);
+		cache_pending_wait[cache_page_addr].erase(addr);
 
-		if (!dram_pending_wait[cache_page_addr].empty())
+		if (!cache_pending_wait[cache_page_addr].empty())
 		{
 			// If not done with this line, then re-enter pending map.
-			dram_pending[cache_page_addr] = p;
-			dram_pending_set.erase(addr);
+			cache_pending[cache_page_addr] = p;
+			cache_pending_set.erase(addr);
 			return;
 		}
 
 		// The line has completed. Delete the wait set object and move on.
-		dram_pending_wait.erase(cache_page_addr);
+		cache_pending_wait.erase(cache_page_addr);
 #endif
 
 
 		// Decrement the pending set counter (this is used to ensure that the pending set entry isn't removed until both LineRead
 		// and VictimRead (if needed) are completely done.
-		contention_decrement(p.flash_addr);
+		contention_decrement(p.back_addr);
 
 		if (DEBUG_CACHE)
 		{
-			cerr << "The victim read to DRAM line " << PAGE_ADDRESS(addr) << " has completed.\n";
-			cerr << "pending_pages[" << PAGE_ADDRESS(p.flash_addr) << "] = " << pending_pages[PAGE_ADDRESS(p.flash_addr)] << "\n";
+			cerr << "The victim read to CACHE line " << PAGE_ADDRESS(addr) << " has completed.\n";
+			cerr << "pending_pages[" << PAGE_ADDRESS(p.back_addr) << "] = " << pending_pages[PAGE_ADDRESS(p.back_addr)] << "\n";
 		}
 
 		// contention_unlock will only unlock if the pending_page counter is 0.
 		// This means that LINE_READ finished first and that the pending set was not removed
 		// in the CacheReadFinish or CacheWriteFinish functions (or LineReadFinish for PREFETCH).
-		uint64_t victim_address = FLASH_ADDRESS(p.victim_tag, SET_INDEX(p.cache_addr));
-		contention_unlock(p.flash_addr, p.orig_addr, "VICTIM_READ", p.victim_valid, victim_address, true, p.cache_addr);
+		uint64_t victim_address = BACK_ADDRESS(p.victim_tag, SET_INDEX(p.cache_addr));
+		contention_unlock(p.back_addr, p.orig_addr, "VICTIM_READ", p.victim_valid, victim_address, true, p.cache_addr);
 
-		// Schedule a write to the flash to simulate the transfer
+		// Schedule a write to the back to simulate the transfer
 		VictimWrite(p);
 	}
 
 	void HybridSystem::VictimWrite(Pending p)
 	{
 		if (DEBUG_CACHE)
-			cerr << currentClockCycle << ": " << "Performing VICTIM_WRITE for (" << p.flash_addr << ", " << p.cache_addr << ")\n";
+			cerr << currentClockCycle << ": " << "Performing VICTIM_WRITE for (" << p.back_addr << ", " << p.cache_addr << ")\n";
 
-		// Compute victim flash address.
-		// This is where the victim line is stored in the Flash address space.
-		uint64_t victim_flash_addr = (p.victim_tag * NUM_SETS + SET_INDEX(p.flash_addr)) * PAGE_SIZE; 
+		// Compute victim back address.
+		// This is where the victim line is stored in the Back address space.
+		uint64_t victim_back_addr = (p.victim_tag * NUM_SETS + SET_INDEX(p.back_addr)) * PAGE_SIZE; 
 
 #if SINGLE_WORD
-		// Schedule a write to Flash to save the evicted line.
-		Transaction t = Transaction(DATA_WRITE, victim_flash_addr, NULL);
-		flash_queue.push_back(t);
+		// Schedule a write to Back to save the evicted line.
+		Transaction t = Transaction(DATA_WRITE, victim_back_addr, NULL);
+		pushBack(t);
 #else
 		// Schedule writes for the entire page.
-		for(uint64_t i=0; i<PAGE_SIZE/FLASH_BURST_SIZE; i++)
+		for(uint64_t i=0; i<PAGE_SIZE/BACK_BURST_SIZE; i++)
 		{
-			Transaction t = Transaction(DATA_WRITE, victim_flash_addr + i*FLASH_BURST_SIZE, NULL);
-			flash_queue.push_back(t);
+			Transaction t = Transaction(DATA_WRITE, victim_back_addr + i*BACK_BURST_SIZE, NULL);
+			pushBack(t);
 		}
 #endif
 
@@ -897,37 +1050,37 @@ namespace HybridSim {
 	{
 		if (DEBUG_CACHE)
 		{
-			cerr << currentClockCycle << ": " << "Performing LINE_READ for (" << p.flash_addr << ", " << p.cache_addr << ")\n";
-			cerr << "the page address was " << PAGE_ADDRESS(p.flash_addr) << endl;
+			cerr << currentClockCycle << ": " << "Performing LINE_READ for (" << p.back_addr << ", " << p.cache_addr << ")\n";
+			cerr << "the page address was " << PAGE_ADDRESS(p.back_addr) << endl;
 		}
 
-		uint64_t page_addr = PAGE_ADDRESS(p.flash_addr);
+		uint64_t page_addr = PAGE_ADDRESS(p.back_addr);
 
 
 		// Increment the pending set counter (this is used to ensure that the pending set entry isn't removed until both LineRead
 		// and VictimRead (if needed) are completely done.
-		contention_increment(p.flash_addr);
+		contention_increment(p.back_addr);
 
 
 #if SINGLE_WORD
-		// Schedule a read from Flash to get the new line 
+		// Schedule a read from Back to get the new line 
 		Transaction t = Transaction(DATA_READ, page_addr, NULL);
-		flash_queue.push_back(t);
+		pushBack(t);
 #else
 		// Schedule reads for the entire page.
-		flash_pending_wait[page_addr] = unordered_set<uint64_t>();
-		for(uint64_t i=0; i<PAGE_SIZE/FLASH_BURST_SIZE; i++)
+		back_pending_wait[page_addr] = unordered_set<uint64_t>();
+		for(uint64_t i=0; i<PAGE_SIZE/BACK_BURST_SIZE; i++)
 		{
-			uint64_t addr = page_addr + i*FLASH_BURST_SIZE;
-			flash_pending_wait[page_addr].insert(addr);
+			uint64_t addr = page_addr + i*BACK_BURST_SIZE;
+			back_pending_wait[page_addr].insert(addr);
 			Transaction t = Transaction(DATA_READ, addr, NULL);
-			flash_queue.push_back(t);
+			pushBack(t);
 		}
 #endif
 
-		// Add a record in the Flash's pending table.
+		// Add a record in the Back's pending table.
 		p.op = LINE_READ;
-		flash_pending[page_addr] = p;
+		back_pending[page_addr] = p;
 	}
 
 
@@ -936,7 +1089,7 @@ namespace HybridSim {
 
 		if (DEBUG_CACHE)
 		{
-			cerr << currentClockCycle << ": " << "LINE_READ callback for (" << p.flash_addr << ", " << p.cache_addr << ") offset="
+			cerr << currentClockCycle << ": " << "LINE_READ callback for (" << p.back_addr << ", " << p.cache_addr << ") offset="
 				<< PAGE_OFFSET(addr);
 		}
 
@@ -944,39 +1097,39 @@ namespace HybridSim {
 		if (DEBUG_CACHE)
 			cerr << " num_left=0 (SINGLE_WORD)\n";
 #else
-		uint64_t page_addr = PAGE_ADDRESS(p.flash_addr);
+		uint64_t page_addr = PAGE_ADDRESS(p.back_addr);
 
 		if (DEBUG_CACHE)
-			cerr << " num_left=" << flash_pending_wait[page_addr].size() << "\n"; 
+			cerr << " num_left=" << back_pending_wait[page_addr].size() << "\n"; 
 
 		// Remove the read that just finished from the wait set.
-		flash_pending_wait[page_addr].erase(addr);
+		back_pending_wait[page_addr].erase(addr);
 
-		if (!flash_pending_wait[page_addr].empty())
+		if (!back_pending_wait[page_addr].empty())
 		{
 			// If not done with this line, then re-enter pending map.
-			flash_pending[PAGE_ADDRESS(addr)] = p;
+			back_pending[PAGE_ADDRESS(addr)] = p;
 			return;
 		}
 
 		// The line has completed. Delete the wait set object and move on.
-		flash_pending_wait.erase(page_addr);
+		back_pending_wait.erase(page_addr);
 #endif
 
 
 		// Decrement the pending set counter (this is used to ensure that the pending set entry isn't removed until both LineRead
 		// and VictimRead (if needed) are completely done.
-		contention_decrement(p.flash_addr);
+		contention_decrement(p.back_addr);
 
 		if (DEBUG_CACHE)
 		{
-			cerr << "The line read to Flash line " << PAGE_ADDRESS(addr) << " has completed.\n";
+			cerr << "The line read to Back line " << PAGE_ADDRESS(addr) << " has completed.\n";
 		}
 
 
 		// Update the cache state
 		cache_line cur_line = cache[p.cache_addr];
-		cur_line.tag = TAG(p.flash_addr);
+		cur_line.tag = TAG(p.back_addr);
 		cur_line.dirty = false;
 		cur_line.valid = true;
 		cur_line.ts = currentClockCycle;
@@ -994,7 +1147,7 @@ namespace HybridSim {
 		}
 		cache[p.cache_addr] = cur_line;
 
-		// Schedule LineWrite operation to store the line in DRAM.
+		// Schedule LineWrite operation to store the line in CACHE.
 		LineWrite(p);
 
 		// Use the CacheReadFinish/CacheWriteFinish functions to mark the page dirty (DATA_WRITE only), perform
@@ -1002,7 +1155,7 @@ namespace HybridSim {
 		// operations to this set to start.
 		// Note: Only write operations are pending at this point, which will not interfere with future operations.
 		if (p.type == DATA_READ)
-			CacheReadFinish(p.cache_addr, p);
+			CacheReadFinish(p.cache_addr, p, true);
 		else if(p.type == DATA_WRITE)
 			CacheWriteFinish(p);
 		else if(p.type == PREFETCH)
@@ -1013,29 +1166,29 @@ namespace HybridSim {
 			// Note: the if statement is needed to ensure that the VictimRead operation (if it was invoked as part of a cache miss)
 			// is already complete. If not, the pending_set removal will be done in VictimReadFinish().
 
-			uint64_t victim_address = FLASH_ADDRESS(p.victim_tag, SET_INDEX(p.cache_addr));
-			contention_unlock(p.flash_addr, p.orig_addr, "PREFETCH", p.victim_valid, victim_address, true, p.cache_addr);
+			uint64_t victim_address = BACK_ADDRESS(p.victim_tag, SET_INDEX(p.cache_addr));
+			contention_unlock(p.back_addr, p.orig_addr, "PREFETCH", p.victim_valid, victim_address, true, p.cache_addr);
 		}
 	}
 
 
 	void HybridSystem::LineWrite(Pending p)
 	{
-		// After a LineRead from flash completes, the LineWrite stores the read line into the DRAM.
+		// After a LineRead from back completes, the LineWrite stores the read line into the CACHE.
 
 		if (DEBUG_CACHE)
-			cerr << currentClockCycle << ": " << "Performing LINE_WRITE for (" << p.flash_addr << ", " << p.cache_addr << ")\n";
+			cerr << currentClockCycle << ": " << "Performing LINE_WRITE for (" << p.back_addr << ", " << p.cache_addr << ")\n";
 
 #if SINGLE_WORD
-		// Schedule a write to DRAM to simulate the write of the line that was read from Flash.
+		// Schedule a write to CACHE to simulate the write of the line that was read from Back.
 		Transaction t = Transaction(DATA_WRITE, p.cache_addr, NULL);
-		dram_queue.push_back(t);
+		pushCache(t, false, p.cache_addr);
 #else
 		// Schedule writes for the entire page.
 		for(uint64_t i=0; i<PAGE_SIZE/BURST_SIZE; i++)
 		{
 			Transaction t = Transaction(DATA_WRITE, p.cache_addr + i*BURST_SIZE, NULL);
-			dram_queue.push_back(t);
+			pushCache(t, false, p.cache_addr);
 		}
 #endif
 
@@ -1043,18 +1196,28 @@ namespace HybridSim {
 	}
 
 
-	void HybridSystem::CacheRead(uint64_t orig_addr, uint64_t flash_addr, uint64_t cache_addr)
+	void HybridSystem::CacheRead(uint64_t orig_addr, uint64_t back_addr, uint64_t cache_addr, Transaction &trans)
 	{
 		if (DEBUG_CACHE)
-			cerr << currentClockCycle << ": " << "Performing CACHE_READ for (" << flash_addr << ", " << cache_addr << ")\n";
+			cerr << currentClockCycle << ": " << "Performing CACHE_READ for (" << back_addr << ", " << cache_addr << ")\n";
 
-		// Compute the actual DRAM address of the data word we care about.
-		uint64_t data_addr = cache_addr + PAGE_OFFSET(flash_addr);
+		// Compute the actual CACHE address of the data word we care about.
+		uint64_t data_addr = cache_addr + PAGE_OFFSET(back_addr);
 
 		assert(cache_addr == PAGE_ADDRESS(data_addr));
 
-		Transaction t = Transaction(DATA_READ, data_addr, NULL);
-		dram_queue.push_back(t);
+		// otherwise we're just issuing single reads at a time
+		if(assocStyle == tag_tlb)
+		{
+			Transaction t = Transaction(DATA_READ, data_addr, NULL);
+			pushCache(t, false, cache_addr);
+		}
+		// if we're doing the channel associativity thing then we have to issue multiple reads in parallel to get the tags		
+		else
+		{
+			Transaction t = Transaction(DATA_READ, data_addr, NULL);
+			pushCache(t, true, cache_addr);
+		}
 
 		// Update the cache state
 		// This could be done here or in CacheReadFinish
@@ -1067,58 +1230,94 @@ namespace HybridSim {
 		cur_line.used = true;
 		cache[cache_addr] = cur_line;
 
-		// Add a record in the DRAM's pending table.
+		// Add a record in the CACHE's pending table.
 		Pending p;
 		p.op = CACHE_READ;
 		p.orig_addr = orig_addr;
-		p.flash_addr = flash_addr;
+		p.back_addr = back_addr;
 		p.cache_addr = cache_addr;
 		p.victim_tag = 0;
 		p.victim_valid = false;
 		p.callback_sent = false;
-		p.type = DATA_READ;
-		assert(dram_pending.count(data_addr) == 0);
-		dram_pending[data_addr] = p;
+		p.type = trans.transactionType;
+		assert(cache_pending.count(data_addr) == 0);
+		cache_pending[data_addr] = p;
+		
 
 		// Assertions for "this can't happen" situations.
-		assert(dram_pending.count(data_addr) != 0);
+		assert(cache_pending.count(data_addr) != 0);
 	}
 
-	void HybridSystem::CacheReadFinish(uint64_t addr, Pending p)
+	void HybridSystem::CacheReadFinish(uint64_t addr, Pending p, bool line_read)
 	{
 		if (DEBUG_CACHE)
-			cerr << currentClockCycle << ": " << "CACHE_READ callback for (" << p.flash_addr << ", " << p.cache_addr << ")\n";
+			cerr << currentClockCycle << ": " << "CACHE_READ callback for (" << p.back_addr << ", " << p.cache_addr << ")\n";
 
 		// Read operation has completed, call the top level callback.
 		// Only do this if it hasn't been sent already by the critical cache line first callback.
 		// Also, do not do this for prefetch since it does not have an external caller waiting on it.
-		if (!p.callback_sent)
-			ReadDoneCallback(systemID, p.orig_addr, currentClockCycle);
+		uint64_t victim_address = BACK_ADDRESS(p.victim_tag, SET_INDEX(p.cache_addr));
+		
+		if(assocStyle == direct && !line_read && !p.callback_sent)
+		{
+			Transaction t = Transaction(p.type, p.orig_addr, NULL);
+            // Do not erase the page from the pending set yet because we're still working with it
+			contention_cache_line_unlock(p.cache_addr);
+			CheckHitMiss(t);
+		}
+		else if(assocStyle == channel && !line_read && !p.callback_sent)
+		{
+			// Remove the read that just finished from the wait set.
+			cache_pending_wait[p.cache_addr].erase(addr);
+			
+			if (!cache_pending_wait[p.cache_addr].empty())
+			{
+				// If not done with this line, then re-enter pending map.
+				cache_pending[p.cache_addr] = p;
+				cache_pending_set.erase(addr);
+				return;
+			}
+			
+			// The line has completed. Delete the wait set object and move on.
+			cache_pending_wait.erase(p.cache_addr);
 
-		// Erase the page from the pending set.
-		// Note: the if statement is needed to ensure that the VictimRead operation (if it was invoked as part of a cache miss)
-		// is already complete. If not, the pending_set removal will be done in VictimReadFinish().
-		uint64_t victim_address = FLASH_ADDRESS(p.victim_tag, SET_INDEX(p.cache_addr));
-		contention_unlock(p.flash_addr, p.orig_addr, "CACHE_READ", p.victim_valid, victim_address, true, p.cache_addr);
+			Transaction t = Transaction(p.type, p.orig_addr, NULL);
+			// However, do not totally unlock the page from the pending set yet because we're still working with it
+			contention_cache_line_unlock(p.cache_addr);
+			CheckHitMiss(t);
+		}
+		else
+		{
+			// Read operation has completed, call the top level callback.
+			// Only do this if it hasn't been sent already by the critical cache line first callback.
+			// Also, do not do this for prefetch since it does not have an external caller waiting on it.
+			if (!p.callback_sent)
+				ReadDoneCallback(systemID, p.orig_addr, currentClockCycle);
+
+            // Erase the page from the pending set.
+		    // Note: the if statement is needed to ensure that the VictimRead operation (if it was invoked as part of a cache miss)
+		    // is already complete. If not, the pending_set removal will be done in VictimReadFinish().	    
+		    contention_unlock(p.back_addr, p.orig_addr, "CACHE_READ", p.victim_valid, victim_address, true, p.cache_addr);
+		}		
 	}
 
-	void HybridSystem::CacheWrite(uint64_t orig_addr, uint64_t flash_addr, uint64_t cache_addr)
+	void HybridSystem::CacheWrite(uint64_t orig_addr, uint64_t back_addr, uint64_t cache_addr)
 	{
 		if (DEBUG_CACHE)
-			cerr << currentClockCycle << ": " << "Performing CACHE_WRITE for (" << flash_addr << ", " << cache_addr << ")\n";
+			cerr << currentClockCycle << ": " << "Performing CACHE_WRITE for (" << back_addr << ", " << cache_addr << ")\n";
 
-		// Compute the actual DRAM address of the data word we care about.
-		uint64_t data_addr = cache_addr + PAGE_OFFSET(flash_addr);
+		// Compute the actual CACHE address of the data word we care about.
+		uint64_t data_addr = cache_addr + PAGE_OFFSET(back_addr);
 
 		Transaction t = Transaction(DATA_WRITE, data_addr, NULL);
-		dram_queue.push_back(t);
+		pushCache(t, false, cache_addr);
 
 		// Finish the operation by updating cache state, doing the callback, and removing the pending set.
 		// Note: This is only split up so the LineWrite operation can reuse the second half
 		// of CacheWrite without actually issuing a new write.
 		Pending p;
 		p.orig_addr = orig_addr;
-		p.flash_addr = flash_addr;
+		p.back_addr = back_addr;
 		p.cache_addr = cache_addr;
 		p.victim_tag = 0;
 		p.victim_valid = false;
@@ -1129,7 +1328,7 @@ namespace HybridSim {
 
 	}
 
-	//void HybridSystem::CacheWriteFinish(uint64_t orig_addr, uint64_t flash_addr, uint64_t cache_addr, bool callback_sent)
+	//void HybridSystem::CacheWriteFinish(uint64_t orig_addr, uint64_t back_addr, uint64_t cache_addr, bool callback_sent)
 	void HybridSystem::CacheWriteFinish(Pending p)
 	{
 		// Update the cache state
@@ -1155,8 +1354,8 @@ namespace HybridSim {
 		// Erase the page from the pending set.
 		// Note: the if statement is needed to ensure that the VictimRead operation (if it was invoked as part of a cache miss)
 		// is already complete. If not, the pending_set removal will be done in VictimReadFinish().
-		uint64_t victim_address = FLASH_ADDRESS(p.victim_tag, SET_INDEX(p.cache_addr));
-		contention_unlock(p.flash_addr, p.orig_addr, "CACHE_WRITE", p.victim_valid, victim_address, true, p.cache_addr);
+		uint64_t victim_address = BACK_ADDRESS(p.victim_tag, SET_INDEX(p.cache_addr));
+		contention_unlock(p.back_addr, p.orig_addr, "CACHE_WRITE", p.victim_valid, victim_address, true, p.cache_addr);
 	}
 
 	
@@ -1173,8 +1372,8 @@ namespace HybridSim {
 		cache[cache_addr] = cur_line;
 
 		uint64_t set_index = SET_INDEX(cache_addr);
-		uint64_t flash_address = FLASH_ADDRESS(cur_line.tag, set_index);
-		contention_unlock(flash_address, flash_address, "FLUSH", false, 0, true, cache_addr);
+		uint64_t back_address = BACK_ADDRESS(cur_line.tag, set_index);
+		contention_unlock(back_address, back_address, "FLUSH", false, 0, true, cache_addr);
 	}
 
         uint64_t HybridSystem::VictimSelect(uint64_t set_index, uint64_t addr, uint64_t cur_address, cache_line cur_line, list<uint64_t> set_address_list)
@@ -1204,7 +1403,7 @@ namespace HybridSim {
 			debug_victim << "--------------------------------------------------------------------\n";
 			debug_victim << currentClockCycle << ": new miss. time to pick the unlucky line.\n";
 			debug_victim << "set: " << set_index << "\n";
-			debug_victim << "new flash addr: 0x" << hex << addr << dec << "\n";
+			debug_victim << "new back addr: 0x" << hex << addr << dec << "\n";
 			debug_victim << "new tag: " << TAG(addr)<< "\n";
 			debug_victim << "scanning set address list...\n\n";
 		}
@@ -1264,7 +1463,7 @@ namespace HybridSim {
 			debug_victim << "--------------------------------------------------------------------\n";
 			debug_victim << currentClockCycle << ": new miss. time to pick the unlucky line.\n";
 			debug_victim << "set: " << set_index << "\n";
-			debug_victim << "new flash addr: 0x" << hex << addr << dec << "\n";
+			debug_victim << "new back addr: 0x" << hex << addr << dec << "\n";
 			debug_victim << "new tag: " << TAG(addr)<< "\n";
 			debug_victim << "scanning set address list...\n\n";
 		}
@@ -1325,7 +1524,7 @@ namespace HybridSim {
 			debug_victim << "--------------------------------------------------------------------\n";
 			debug_victim << currentClockCycle << ": new miss. time to pick the unlucky line.\n";
 			debug_victim << "set: " << set_index << "\n";
-			debug_victim << "new flash addr: 0x" << hex << addr << dec << "\n";
+			debug_victim << "new back addr: 0x" << hex << addr << dec << "\n";
 			debug_victim << "new tag: " << TAG(addr)<< "\n";
 			debug_victim << "scanning set address list...\n\n";
 		}
@@ -1385,7 +1584,7 @@ namespace HybridSim {
 			debug_victim << "--------------------------------------------------------------------\n";
 			debug_victim << currentClockCycle << ": new miss. time to pick the unlucky line.\n";
 			debug_victim << "set: " << set_index << "\n";
-			debug_victim << "new flash addr: 0x" << hex << addr << dec << "\n";
+			debug_victim << "new back addr: 0x" << hex << addr << dec << "\n";
 			debug_victim << "new tag: " << TAG(addr)<< "\n";
 			debug_victim << "scanning set address list...\n\n";
 		}
@@ -1445,7 +1644,7 @@ namespace HybridSim {
 			debug_victim << "--------------------------------------------------------------------\n";
 			debug_victim << currentClockCycle << ": new miss. time to pick the unlucky line.\n";
 			debug_victim << "set: " << set_index << "\n";
-			debug_victim << "new flash addr: 0x" << hex << addr << dec << "\n";
+			debug_victim << "new back addr: 0x" << hex << addr << dec << "\n";
 			debug_victim << "new tag: " << TAG(addr)<< "\n";
 			debug_victim << "selecting random victim...\n\n";
 		}
@@ -1488,14 +1687,14 @@ namespace HybridSim {
 	}
 
 
-	void HybridSystem::DRAMReadCallback(uint id, uint64_t addr, uint64_t cycle)
+	void HybridSystem::CacheReadCallback(uint id, uint64_t addr, uint64_t cycle)
 	{
 		// Determine which address to look up in the pending table.
-		// If there is an entry for this page in the dram_pending_wait, then that
+		// If there is an entry for this page in the cache_pending_wait, then that
 		// means this is for a VICTIM_READ operation and we should use the page address.
 		// Otherwise, this is for a CACHE_READ operation and we should use the addr directly.
 		uint64_t pending_addr;
-		if (dram_pending_wait.count(PAGE_ADDRESS(addr)) != 0)
+		if (cache_pending_wait.count(PAGE_ADDRESS(addr)) != 0)
 		{
 			pending_addr = PAGE_ADDRESS(addr);
 		}
@@ -1505,59 +1704,64 @@ namespace HybridSim {
 		}
 
 
-		if (dram_pending.count(pending_addr) != 0)
+		if (cache_pending.count(pending_addr) != 0)
 		{
 			// Get the pending object for this transaction.
-			Pending p = dram_pending[pending_addr];
+			Pending p = cache_pending[pending_addr];
 
-			// Remove this pending object from dram_pending
-			dram_pending.erase(pending_addr);
-			assert(dram_pending.count(pending_addr) == 0);
+			// Remove this pending object from cache_pending
+			cache_pending.erase(pending_addr);
+			assert(cache_pending.count(pending_addr) == 0);
 
 			if (p.op == VICTIM_READ)
 			{
 				VictimReadFinish(addr, p);
+				cache_pending.erase(pending_addr);
 			}
 			else if (p.op == CACHE_READ)
 			{
-				CacheReadFinish(addr, p);
+				if(assocStyle != tag_tlb)
+				{
+					cache_pending_set.erase(addr);
+					CacheReadFinish(addr, p, 0);
+				}
+				else
+				{
+					CacheReadFinish(addr, p, 0);
+					cache_pending_set.erase(addr);
+				}
 			}
 			else
 			{
-				ERROR("DRAMReadCallback received an invalid op.");
+				ERROR("CACHEReadCallback received an invalid op.");
 				abort();
 			}
 		}
 		else
 		{
-			ERROR("DRAMReadCallback received an address not in the pending set.");
+			ERROR("CACHEReadCallback received an address not in the pending set.");
 			abort();
 		}
 
 		// Erase from the pending set AFTER everything else (so I can see if failed values are in the pending set).
-		dram_pending_set.erase(addr);
+		cache_pending_set.erase(addr);
 	}
 
-	void HybridSystem::DRAMWriteCallback(uint id, uint64_t addr, uint64_t cycle)
+	void HybridSystem::CacheWriteCallback(uint id, uint64_t addr, uint64_t cycle)
 	{
-		// Nothing to do (it doesn't matter when the DRAM write finishes for the cache controller, as long as it happens).
-		dram_pending_set.erase(addr);
+		// Nothing to do (it doesn't matter when the CACHE write finishes for the cache controller, as long as it happens).
+		cache_pending_set.erase(addr);
 	}
 
-	void HybridSystem::DRAMPowerCallback(double a, double b, double c, double d)
+	void HybridSystem::BackReadCallback(uint64_t id, uint64_t addr, uint64_t cycle, bool unmapped)
 	{
-		printf("power callback: %0.3f, %0.3f, %0.3f, %0.3f\n",a,b,c,d);
-	}
-
-	void HybridSystem::FlashReadCallback(uint64_t id, uint64_t addr, uint64_t cycle, bool unmapped)
-	{
-		if (flash_pending.count(PAGE_ADDRESS(addr)) != 0)
+		if (back_pending.count(PAGE_ADDRESS(addr)) != 0)
 		{
 			// Get the pending object.
-			Pending p = flash_pending[PAGE_ADDRESS(addr)];
+			Pending p = back_pending[PAGE_ADDRESS(addr)];
 
-			// Remove this pending object from flash_pending
-			flash_pending.erase(PAGE_ADDRESS(addr));
+			// Remove this pending object from back_pending
+			back_pending.erase(PAGE_ADDRESS(addr));
 
 			if (p.op == LINE_READ)
 			{
@@ -1565,20 +1769,20 @@ namespace HybridSim {
 			}
 			else
 			{
-				ERROR("FlashReadCallback received an invalid op.");
+				ERROR("BackReadCallback received an invalid op.");
 				abort();
 			}
 		}
 		else
 		{
-			ERROR("FlashReadCallback received an address not in the pending set.");
-			cerr << "flash_pending count was " << flash_pending.count(PAGE_ADDRESS(addr)) << "\n";
+			ERROR("BackReadCallback received an address not in the pending set.");
+			cerr << "back_pending count was " << back_pending.count(PAGE_ADDRESS(addr)) << "\n";
 			cerr << "address: " << addr << " page: " << PAGE_ADDRESS(addr) << " set: " << SET_INDEX(addr) << "\n";
 			abort();
 		}
 	}
 
-	void HybridSystem::FlashCriticalLineCallback(uint64_t id, uint64_t addr, uint64_t cycle, bool unmapped)
+	void HybridSystem::BackCriticalLineCallback(uint64_t id, uint64_t addr, uint64_t cycle, bool unmapped)
 	{
 		// This function is called to implement critical line first for reads.
 		// This allows HybridSim to tell the external user it can make progress as soon as the data
@@ -1586,10 +1790,10 @@ namespace HybridSim {
 
 		//cerr << cycle << ": Critical Line Callback Received for address " << addr << "\n";
 
-		if (flash_pending.count(PAGE_ADDRESS(addr)) != 0)
+		if (back_pending.count(PAGE_ADDRESS(addr)) != 0)
 		{
 			// Get the pending object.
-			Pending p = flash_pending[PAGE_ADDRESS(addr)];
+			Pending p = back_pending[PAGE_ADDRESS(addr)];
 
 			// Note: DO NOT REMOVE THIS FROM THE PENDING SET.
 
@@ -1598,7 +1802,7 @@ namespace HybridSim {
 			{
 				if (p.callback_sent)
 				{
-					ERROR("FlashCriticalLineCallback called twice on the same pending item.");
+					ERROR("BackCriticalLineCallback called twice on the same pending item.");
 					abort();
 				}
 					
@@ -1615,28 +1819,28 @@ namespace HybridSim {
 				// Mark the pending item's callback as being sent so it isn't sent again later.
 				p.callback_sent = true;
 
-				flash_pending[PAGE_ADDRESS(addr)] = p;
+				back_pending[PAGE_ADDRESS(addr)] = p;
 			}
 			else
 			{
-				ERROR("FlashCriticalLineCallback received an invalid op.");
+				ERROR("BackCriticalLineCallback received an invalid op.");
 				abort();
 			}
 		}
 		else
 		{
-			ERROR("FlashCriticalLineCallback received an address not in the pending set.");
+			ERROR("BackCriticalLineCallback received an address not in the pending set.");
 			abort();
 		}
 
 	}
 
-	void HybridSystem::FlashWriteCallback(uint64_t id, uint64_t addr, uint64_t cycle, bool unmapped)
+	void HybridSystem::BackWriteCallback(uint64_t id, uint64_t addr, uint64_t cycle, bool unmapped)
 	{
-		// Nothing to do (it doesn't matter when the flash write finishes for the cache controller, as long as it happens).
+		// Nothing to do (it doesn't matter when the back write finishes for the cache controller, as long as it happens).
 
 		if (DEBUG_CACHE)
-			cerr << "The write to Flash line " << PAGE_ADDRESS(addr) << " has completed.\n";
+			cerr << "The write to Back line " << PAGE_ADDRESS(addr) << " has completed.\n";
 	}
 
 
@@ -1722,7 +1926,7 @@ namespace HybridSim {
 			log.print();
 		
 			// Tell NVDIMM to print logs now
-			//flash->saveStats();
+			//back->saveStats();
 		}
 	}
 
@@ -1821,7 +2025,7 @@ namespace HybridSim {
 		
 			inFile.close();
 
-			//flash->loadNVState(NVDIMM_RESTORE_FILE);
+			//back->loadNVState(NVDIMM_RESTORE_FILE);
 		}
 	}
 
@@ -1860,34 +2064,32 @@ namespace HybridSim {
 			}
 
 			savefile.close();
-
-			flash->saveNVState(NVDIMM_SAVE_FILE);
 		}
 	}
 
 
 
 	// Page Contention functions
-	void HybridSystem::contention_lock(uint64_t flash_addr)
+	void HybridSystem::contention_lock(uint64_t back_addr)
 	{
-		pending_flash_addr[flash_addr] = 0;
+		pending_back_addr[back_addr] = 0;
 	}
 
-	void HybridSystem::contention_page_lock(uint64_t flash_addr)
+	void HybridSystem::contention_page_lock(uint64_t back_addr)
 	{
 		// Add to the pending pages map. And set the count to 0.
-		pending_pages[PAGE_ADDRESS(flash_addr)] = 0;
+		pending_pages[PAGE_ADDRESS(back_addr)] = 0;
 	}
 
-	void HybridSystem::contention_unlock(uint64_t flash_addr, uint64_t orig_addr, string operation, bool victim_valid, uint64_t victim_page, 
+	void HybridSystem::contention_unlock(uint64_t back_addr, uint64_t orig_addr, string operation, bool victim_valid, uint64_t victim_page, 
 			bool cache_line_valid, uint64_t cache_addr)
 	{
-		uint64_t page_addr = PAGE_ADDRESS(flash_addr);
+		uint64_t page_addr = PAGE_ADDRESS(back_addr);
 
-		// If there is no page entry, then this means only the flash address was locked (i.e. it is a DRAM hit).
+		// If there is no page entry, then this means only the back address was locked (i.e. it is a CACHE hit).
 		if (pending_pages.count(page_addr) == 0)
 		{
-			int num = pending_flash_addr.erase(flash_addr);
+			int num = pending_back_addr.erase(back_addr);
 			assert(num == 1);
 
 			// Victim should never be valid if we were only servicing a cache hit.
@@ -1912,18 +2114,18 @@ namespace HybridSim {
 		// Erase the page from the pending page map.
 		// Note: the if statement is needed to ensure that the VictimRead operation (if it was invoked as part of a cache miss)
 		// is already complete. If not, the pending_set removal will be done in VictimReadFinish().
-		else if (pending_pages[PAGE_ADDRESS(flash_addr)] == 0)
+		else if (pending_pages[PAGE_ADDRESS(back_addr)] == 0)
 		{
-			int num = pending_pages.erase(PAGE_ADDRESS(flash_addr));
+			int num = pending_pages.erase(PAGE_ADDRESS(back_addr));
 			if (num != 1)
 			{
 				cerr << "pending_pages.erase() was called after " << operation << " and num was 0.\n";
-				cerr << "orig:" << orig_addr << " aligned:" << flash_addr << "\n\n";
+				cerr << "orig:" << orig_addr << " aligned:" << back_addr << "\n\n";
 				abort();
 			}
 
-			// Also remove the pending_flash_addr entry.
-			num = pending_flash_addr.erase(flash_addr);
+			// Also remove the pending_back_addr entry.
+			num = pending_back_addr.erase(back_addr);
 			assert(num == 1);
 
 			// If the victim page is valid, then unlock it too.
@@ -1940,9 +2142,9 @@ namespace HybridSim {
 		}
 	}
 
-	bool HybridSystem::contention_is_unlocked(uint64_t flash_addr)
+	bool HybridSystem::contention_is_unlocked(uint64_t back_addr)
 	{
-		uint64_t page_addr = PAGE_ADDRESS(flash_addr);
+		uint64_t page_addr = PAGE_ADDRESS(back_addr);
 
 		// First see if the set is locked. This is done by looking at the set_counter.
 		// If the set counter exists and is equal to the set size, then we should NOT be trying to do any more accesses
@@ -1950,32 +2152,37 @@ namespace HybridSim {
 		uint64_t set_index = SET_INDEX(page_addr);
 		if (set_counter.count(set_index) > 0)
 		{
-			if (set_counter[set_index] == SET_SIZE)
+			// if we're doing the in dram tags then we shouldn't be accessing a set unless nothing else is using it
+			if (assocStyle != tag_tlb && set_counter[set_index] >= 1)
+			{
+				return false;
+			}
+			else if (set_counter[set_index] == SET_SIZE)
 			{
 				return false;
 			}
 		}
 
-		// If the page is not in the penting_pages and pending_flash_addr map, then it is unlocked.
-		if ((pending_pages.count(page_addr) == 0) && (pending_flash_addr.count(flash_addr) == 0))
+		// If the page is not in the penting_pages and pending_back_addr map, then it is unlocked.
+		if ((pending_pages.count(page_addr) == 0) && (pending_back_addr.count(back_addr) == 0))
 			return true;
 		else
 			return false;
 	}
 
 
-	void HybridSystem::contention_increment(uint64_t flash_addr)
+	void HybridSystem::contention_increment(uint64_t back_addr)
 	{
-		uint64_t page_addr = PAGE_ADDRESS(flash_addr);
+		uint64_t page_addr = PAGE_ADDRESS(back_addr);
 		// TODO: Add somme error checking here (e.g. make sure page is in pending_pages and make sure count is >= 0)
 
 		// This implements a counting semaphore for the page so that it isn't unlocked until the count is 0.
 		pending_pages[page_addr] += 1;
 	}
 
-	void HybridSystem::contention_decrement(uint64_t flash_addr)
+	void HybridSystem::contention_decrement(uint64_t back_addr)
 	{
-		uint64_t page_addr = PAGE_ADDRESS(flash_addr);
+		uint64_t page_addr = PAGE_ADDRESS(back_addr);
 		// TODO: Add somme error checking here (e.g. make sure page is in pending_pages and make sure count is >= 0)
 
 		// This implements a counting semaphore for the page so that it isn't unlocked until the count is 0.
@@ -2051,17 +2258,17 @@ namespace HybridSim {
 
 		cache_line cur_line = cache[cache_address];
 
-		uint64_t victim_flash_addr = FLASH_ADDRESS(cur_line.tag, SET_INDEX(cache_address));
+		uint64_t victim_back_addr = BACK_ADDRESS(cur_line.tag, SET_INDEX(cache_address));
 
 		// The address in the cache line should be the SAME as the address we are syncing on.
-		assert(victim_flash_addr == addr);
+		assert(victim_back_addr == addr);
 
 		// Lock the cache line so no one else tries to use it while this miss is being serviced.
 		contention_cache_line_lock(cache_address);
 	
 		Pending p;
 		p.orig_addr = trans.address;
-		p.flash_addr = addr;
+		p.back_addr = addr;
 		p.cache_addr = cache_address;
 		p.victim_tag = cur_line.tag;
 		p.victim_valid = false; // MUST SET THIS TO FALSE SINCE SYNC PAGE AND VICTIM PAGE MATCH.
@@ -2104,12 +2311,12 @@ namespace HybridSim {
 
 		if (cur_line.valid && cur_line.dirty)
 		{
-			// Compute flash address.
-			uint64_t flash_addr = FLASH_ADDRESS(cur_line.tag, SET_INDEX(addr));
+			// Compute back address.
+			uint64_t back_addr = BACK_ADDRESS(cur_line.tag, SET_INDEX(addr));
 
-			// Issue sync command for flash address.
-			addSync(flash_addr);
-			//cout << "Added sync for address " << flash_addr << endl;
+			// Issue sync command for back address.
+			addSync(back_addr);
+			//cout << "Added sync for address " << back_addr << endl;
 		}
 
 		// Unlock the page and return.

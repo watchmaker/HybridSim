@@ -56,17 +56,27 @@ uint64_t PAGE_SIZE = 4096; // in bytes, so divide this by 64 to get the number o
 uint64_t SET_SIZE = 64; // associativity of cache
 
 uint64_t BURST_SIZE = 64; // number of bytes in a single transaction, this means with PAGE_SIZE=1024, 16 transactions are needed
-uint64_t FLASH_BURST_SIZE = 4096; // number of bytes in a single flash transaction
+uint64_t BACK_BURST_SIZE = 4096; // number of bytes in a single flash transaction
 
 // Number of pages total and number of pages in the cache
 uint64_t TOTAL_PAGES = 2097152/4; // 2 GB
 uint64_t CACHE_PAGES = 1048576/4; // 1 GB
 
-// PaulMod: Replacement Policy
+// PaulMod: 
+
+// Associativity implementation
+string ASSOC_STYLE;
+AssocStyle assocStyle;
+
+// Concurrency parameters
+uint64_t CACHE_CONCUR;
+uint64_t BACK_CONCUR;
+
+// Replacement Policy
 string REPLACEMENT_POLICY;
 ReplacementPolicy replacementPolicy;
 
-// PaulMod: Constant Delay Timings (in cycles)
+// Constant Delay Timings (in cycles)
 uint64_t CACHE_DELAY = 50; //75ns
 uint64_t BACK_DELAY = 16556; //25000ns
 
@@ -163,12 +173,35 @@ string NVDIMM_SAVE_FILE = "none";
 				convert_uint64_t(SET_SIZE, value, key);
 			else if (key.compare("BURST_SIZE") == 0)
 				convert_uint64_t(BURST_SIZE, value, key);
-			else if (key.compare("FLASH_BURST_SIZE") == 0)
-				convert_uint64_t(FLASH_BURST_SIZE, value, key);
+			else if (key.compare("BACK_BURST_SIZE") == 0)
+				convert_uint64_t(BACK_BURST_SIZE, value, key);
 			else if (key.compare("TOTAL_PAGES") == 0)
 				convert_uint64_t(TOTAL_PAGES, value, key);
 			else if (key.compare("CACHE_PAGES") == 0)
 				convert_uint64_t(CACHE_PAGES, value, key);
+			else if (key.compare("ASSOC_STYLE") == 0)
+			{
+				if(value.compare("TAG_TLB") == 0)
+				{
+					assocStyle = tag_tlb;
+				}
+				else if(value.compare("DIRECT") == 0)
+				{
+					assocStyle = direct;
+				}
+				else if(value.compare("CHANNEL") == 0)
+				{
+					assocStyle = channel;
+				}
+				else
+				{
+					assocStyle = tag_tlb;
+				}
+			}
+			else if (key.compare("BACK_CONCUR") == 0)
+				convert_uint64_t(BACK_CONCUR, value, key);
+			else if (key.compare("CACHE_CONCUR") == 0)
+				convert_uint64_t(CACHE_CONCUR, value, key);
 			else if (key.compare("REPLACEMENT_POLICY") == 0)
 			{
 			        if(value.compare("LRU") == 0)

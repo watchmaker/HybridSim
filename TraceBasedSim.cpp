@@ -43,6 +43,7 @@ uint64_t pending = 0;
 uint64_t throttle_count = 0;
 uint64_t throttle_cycles = 0;
 uint64_t final_cycles = 0;
+uint64_t speedup_factor = 0;
 
 // The maximum transaction count for this simuation
 uint64_t START_TRANS = 0;
@@ -61,6 +62,7 @@ void print_usage()
 	cout << " -t --trace_file <filename>       Trace file to use \n";
 	cout << " -s --start_trans <trans number>  Transaction to start on \n";
 	cout << " -e --end_trans <trans number>    Transaction to end on \n";
+	cout << " -u --speedup <speedup factor>    The amount to speedup the trace \n";
 	cout << " -h --help                        Display the usage information \n";
 }
 
@@ -79,11 +81,12 @@ int main(int argc, char *argv[])
 		{ "trace_file", required_argument, NULL, 't'},
 		{ "start_trans", required_argument, NULL, 's'},
 		{ "end_trans", required_argument, NULL, 'e'},
+		{ "speedup", required_argument, NULL, 'u'},
 		{ "help", no_argument, NULL, 'h' },
 		{ NULL, no_argument, NULL, 0 }		
 	};
 
-	while((c = getopt_long(argc, argv, "t:s:e:h", long_options, NULL)) != -1)
+	while((c = getopt_long(argc, argv, "t:s:e:u:h", long_options, NULL)) != -1)
 	{
 		switch(c)
 		{
@@ -100,6 +103,11 @@ int main(int argc, char *argv[])
 		case 'e':
 			ss << optarg;
 			ss >> MAX_TRANS;
+			ss.clear(); // safety
+			break;
+	        case 'u':
+			ss << optarg;
+			ss >> speedup_factor;
 			ss.clear(); // safety
 			break;
 		case 'h':
@@ -235,7 +243,16 @@ int HybridSimTBS::run_trace(string tracefile)
 		}
 
 		// Finish parsing.
-		uint64_t trans_cycle = line_vals[0];
+		// speedup the time stamps if we're doing that
+		uint64_t trans_cycle;
+		if(speedup_factor != 0)
+		{
+			trans_cycle = line_vals[0] / speedup_factor;
+		}
+		else
+		{
+			trans_cycle = line_vals[0];
+		}
 		bool write = line_vals[1] % 2;
 		uint64_t addr = line_vals[2];
 
@@ -292,8 +309,8 @@ int HybridSimTBS::run_trace(string tracefile)
 
 
 	cout << "\n\n" << mem->currentClockCycle << ": completed " << complete << "\n\n";
-	cout << "dram_pending=" << mem->dram_pending.size() << " flash_pending=" << mem->flash_pending.size() << "\n\n";
-	cout << "dram_queue=" << mem->dram_queue.size() << " flash_queue=" << mem->flash_queue.size() << "\n\n";
+	cout << "cache_pending=" << mem->cache_pending.size() << " back_pending=" << mem->back_pending.size() << "\n\n";
+	cout << "cache_queue=" << mem->cache_queue.size() << " back_queue=" << mem->back_queue.size() << "\n\n";
 	cout << "pending_pages=" << mem->pending_pages.size() << "\n\n";
 	for (unordered_map<uint64_t, uint64_t>::iterator it = mem->pending_pages.begin(); it != mem->pending_pages.end(); it++)
 	{
@@ -301,9 +318,9 @@ int HybridSimTBS::run_trace(string tracefile)
 	}
 	cout << "\n\n";
 	cout << "pending_count=" << mem->pending_count << "\n\n";
-	cout << "dram_pending_set.size() =" << mem->dram_pending_set.size() << "\n\n";
-	cout << "dram_bad_address.size() = " << mem->dram_bad_address.size() << "\n";
-	for (list<uint64_t>::iterator it = mem->dram_bad_address.begin(); it != mem->dram_bad_address.end(); it++)
+	cout << "cache_pending_set.size() =" << mem->cache_pending_set.size() << "\n\n";
+	cout << "cache_bad_address.size() = " << mem->cache_bad_address.size() << "\n";
+	for (list<uint64_t>::iterator it = mem->cache_bad_address.begin(); it != mem->cache_bad_address.end(); it++)
 	{
 		cout << (*it) << " ";
 	}

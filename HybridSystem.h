@@ -62,12 +62,12 @@ namespace HybridSim
 				TransactionCompleteCB *writeDone);
 		void mmio(uint64_t operation, uint64_t address);
 		void syncAll();
-		void DRAMReadCallback(uint id, uint64_t addr, uint64_t cycle);
-		void DRAMWriteCallback(uint id, uint64_t addr, uint64_t cycle);
-		void DRAMPowerCallback(double a, double b, double c, double d);
-		void FlashReadCallback(uint64_t id, uint64_t addr, uint64_t cycle, bool unmapped);
-		void FlashCriticalLineCallback(uint64_t id, uint64_t addr, uint64_t cycle, bool unmapped);
-		void FlashWriteCallback(uint64_t id, uint64_t addr, uint64_t cycle, bool unmapped);
+		void CacheReadCallback(uint id, uint64_t addr, uint64_t cycle);
+		void CacheWriteCallback(uint id, uint64_t addr, uint64_t cycle);
+		void CachePowerCallback(double a, double b, double c, double d);
+		void BackReadCallback(uint64_t id, uint64_t addr, uint64_t cycle, bool unmapped);
+		void BackCriticalLineCallback(uint64_t id, uint64_t addr, uint64_t cycle, bool unmapped);
+		void BackWriteCallback(uint64_t id, uint64_t addr, uint64_t cycle, bool unmapped);
 
 		// Functions to run the callbacks to the module using HybridSim.
 		void ReadDoneCallback(uint systemID, uint64_t orig_addr, uint64_t cycle);
@@ -85,8 +85,18 @@ namespace HybridSim
 
 
 		// Helper functions
+		void advanceBackConcur();
+		void pushBack(Transaction &trans);
+		void advanceCacheConcur(); 
+		void pushCache(Transaction &trans, bool tag_lookup, uint64_t cache_addr);
+
+		// PaulMod: this enables the checking for a hit both before and after accessing the cache
+		// this is for the direct mapped cache simulation
+		void CheckHitMiss(Transaction &trans);
+
 		void ProcessTransaction(Transaction &trans);
 
+		void AlreadyVictimRead(Pending p);
 		void VictimRead(Pending p);
 		void VictimReadFinish(uint64_t addr, Pending p);
 
@@ -97,10 +107,10 @@ namespace HybridSim
 
 		void LineWrite(Pending p);
 
-		void CacheRead(uint64_t orig_addr, uint64_t flash_addr, uint64_t cache_addr);
-		void CacheReadFinish(uint64_t addr, Pending p);
+		void CacheRead(uint64_t orig_addr, uint64_t back_addr, uint64_t cache_addr, Transaction &trans);
+		void CacheReadFinish(uint64_t addr, Pending p, bool line_read);
 
-		void CacheWrite(uint64_t orig_addr, uint64_t flash_addr, uint64_t cache_addr);
+		void CacheWrite(uint64_t orig_addr, uint64_t back_addr, uint64_t cache_addr);
 		void CacheWriteFinish(Pending p);
 
 		void Flush(uint64_t cache_addr);
@@ -116,13 +126,13 @@ namespace HybridSim
 
 
 		// Page Contention Functions
-		void contention_lock(uint64_t flash_addr);
-		void contention_page_lock(uint64_t flash_addr);
-		void contention_unlock(uint64_t flash_addr, uint64_t orig_addr, string operation, bool victim_valid, uint64_t victim_page, 
+		void contention_lock(uint64_t back_addr);
+		void contention_page_lock(uint64_t back_addr);
+		void contention_unlock(uint64_t back_addr, uint64_t orig_addr, string operation, bool victim_valid, uint64_t victim_page, 
 				bool cache_line_valid, uint64_t cache_addr);
-		bool contention_is_unlocked(uint64_t flash_addr);
-		void contention_increment(uint64_t flash_addr);
-		void contention_decrement(uint64_t flash_addr);
+		bool contention_is_unlocked(uint64_t back_addr);
+		void contention_increment(uint64_t back_addr);
+		void contention_decrement(uint64_t back_addr);
 		void contention_victim_lock(uint64_t page_addr);
 		void contention_victim_unlock(uint64_t page_addr);
 		void contention_cache_line_lock(uint64_t cache_addr);
@@ -154,21 +164,17 @@ namespace HybridSim
 		TransactionCompleteCB *WriteDone;
 		uint systemID;
 
-		DRAMSim::MultiChannelMemorySystem *dram;
-
-		NVDSim::NVDIMM *flash;
-
 		unordered_map<uint64_t, cache_line> cache;
 
-		unordered_map<uint64_t, Pending> dram_pending;
-		unordered_map<uint64_t, Pending> flash_pending;
+		unordered_map<uint64_t, Pending> cache_pending;
+		unordered_map<uint64_t, Pending> back_pending;
 
 		// Per page wait sets for the VICTIM_READ and LINE_READ operations.
-		unordered_map<uint64_t, unordered_set<uint64_t>> dram_pending_wait;
-		unordered_map<uint64_t, unordered_set<uint64_t>> flash_pending_wait;
+		unordered_map<uint64_t, unordered_set<uint64_t>> cache_pending_wait;
+		unordered_map<uint64_t, unordered_set<uint64_t>> back_pending_wait;
 
 		
-		unordered_map<uint64_t, uint64_t> pending_flash_addr; // If a page is in the pending_flash_addr , then skip subsequent transactions to the flash address.
+		unordered_map<uint64_t, uint64_t> pending_back_addr; // If a page is in the pending_back_addr , then skip subsequent transactions to the back address.
 		unordered_map<uint64_t, uint64_t> pending_pages; // If a page is in the pending_pages, then skip subsequent transactions to the page.
 		unordered_map<uint64_t, uint64_t> set_counter; // Counts the number of outstanding transactions to each set.
 
@@ -179,9 +185,9 @@ namespace HybridSim
 		bool active_transaction_flag; // Indicates that a transaction is waiting for SRAM.
 
 		int64_t pending_count;
-		set<uint64_t> dram_pending_set;
-		list<uint64_t> dram_bad_address;
-		uint64_t max_dram_pending;
+		set<uint64_t> cache_pending_set;
+		list<uint64_t> cache_bad_address;
+		uint64_t max_cache_pending;
 		uint64_t pending_pages_max;
 		uint64_t trans_queue_max;
 		uint64_t trans_queue_size;
@@ -192,8 +198,10 @@ namespace HybridSim
 		list<Transaction> back_running_queue;
 
 		list<Transaction> trans_queue; // Entry queue for the cache controller.
-		list<Transaction> dram_queue; // Buffer to wait for DRAM
-		list<Transaction> flash_queue; // Buffer to wait for Flash
+		list<Transaction> cache_queue; // Buffer to wait for CACHE
+		list<Transaction> back_queue; // Buffer to wait for Back
+		uint64_t cache_inflight;
+		uint64_t back_inflight;
 
 		// Logger is used to store HybridSim-specific logging events.
 		Logger log;
@@ -210,6 +218,7 @@ namespace HybridSim
 		ofstream debug_victim;
 		ofstream debug_nvdimm_trace;
 		ofstream debug_full_trace;
+		ofstream debug_cache_addresses;
 
 		// TLB state
 		unordered_map<uint64_t, uint64_t> tlb_base_set; 
@@ -218,7 +227,7 @@ namespace HybridSim
 
 		// Prefetch tracking.
 		uint64_t total_prefetches;
-		uint64_t unused_prefetches; // Count of unused prefetched pages in the DRAM cache.
+		uint64_t unused_prefetches; // Count of unused prefetched pages in the cache.
 		uint64_t unused_prefetch_victims; // Count of unused prefetched pages that were never used before being evicted.
 		uint64_t prefetch_hit_nops; // Count the number of prefetch hits that are nops.
 

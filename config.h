@@ -63,6 +63,8 @@
 // Outputs the full trace of accesses received by HybridSim. Goes to full_trace.log.
 #define DEBUG_FULL_TRACE 0
 
+// Outputs the address lists of the cache sets and which cache aligned address is chosen
+#define DEBUG_CACHE_ADDRESSES 0
 
 // Map the first CACHE_PAGES of the NVDIMM address space.
 // This is the initial state of the hybrid memory on boot.
@@ -133,18 +135,18 @@ const uint64_t FOURGB = 4294967296; // 1024^3 * 4
 #include <assert.h>
 
 // Include external interface for DRAMSim.
-#include <DRAMSim.h>
+//#include <DRAMSim.h>
 
 // Additional things I reuse from DRAMSim repo (for internal use only).
 //#include <Transaction.h>
-#include <SimulatorObject.h>
-using DRAMSim::SimulatorObject;
+#include "SimulatorObject.h"
+//using DRAMSim::SimulatorObject;
 //using DRAMSim::TransactionType;
 //using DRAMSim::DATA_READ;
 //using DRAMSim::DATA_WRITE;
 
 // Include external interface for NVDIMM.
-#include <NVDIMMSim.h>
+//#include <NVDIMMSim.h>
 
 
 // Include the Transaction type (which is needed below).
@@ -158,8 +160,6 @@ using namespace std;
 
 namespace HybridSim
 {
-
-
 
 // Declare externs for Ini file settings.
 
@@ -177,13 +177,28 @@ extern uint64_t REUSE_MAX;
 extern uint64_t PAGE_SIZE; // in bytes, so divide this by 64 to get the number of DDR3 transfers per page
 extern uint64_t SET_SIZE; // associativity of cache
 extern uint64_t BURST_SIZE; // number of bytes in a single transaction, this means with PAGE_SIZE=1024, 16 transactions are needed
-extern uint64_t FLASH_BURST_SIZE; // number of bytes in a single flash transaction
+extern uint64_t BACK_BURST_SIZE; // number of bytes in a single flash transaction
 
 // Number of pages total and number of pages in the cache
 extern uint64_t TOTAL_PAGES; // 2 GB
 extern uint64_t CACHE_PAGES; // 1 GB
 
-// PaulMod: Replacement Policy Stuff
+// Paul Mod:
+// Associativity implementation
+enum AssocStyle
+{
+	tag_tlb,
+	direct,
+	channel
+};
+extern string ASSOC_STYLE;
+extern AssocStyle assocStyle;
+
+// Concurrency parameters
+extern uint64_t CACHE_CONCUR;
+extern uint64_t BACK_CONCUR;
+
+// Replacement Policy Stuff
 enum ReplacementPolicy
 {
   lru,
@@ -204,8 +219,8 @@ extern uint64_t BACK_DELAY;
 extern uint64_t CYCLES_PER_SECOND;
 
 // INI files
-extern string dram_ini;
-extern string flash_ini;
+extern string cache_ini;
+extern string back_ini;
 extern string sys_ini;
 
 // Save/Restore options
@@ -228,7 +243,7 @@ extern string NVDIMM_SAVE_FILE;
 #define PAGE_OFFSET(addr) (addr % PAGE_SIZE)
 #define SET_INDEX(addr) (PAGE_NUMBER(addr) % NUM_SETS)
 #define TAG(addr) (PAGE_NUMBER(addr) / NUM_SETS)
-#define FLASH_ADDRESS(tag, set) ((tag * NUM_SETS + set) * PAGE_SIZE)
+#define BACK_ADDRESS(tag, set) ((tag * NUM_SETS + set) * PAGE_SIZE)
 #define ALIGN(addr) (((addr / BURST_SIZE) * BURST_SIZE) % (TOTAL_PAGES * PAGE_SIZE))
 
 // TLB derived parameters
@@ -278,15 +293,15 @@ class Pending
 	public:
 	PendingOperation op; // What operation is being performed.
 	uint64_t orig_addr;
-	uint64_t flash_addr;
+	uint64_t back_addr;
 	uint64_t cache_addr;
 	uint64_t victim_tag;
 	bool victim_valid;
 	bool callback_sent;
 	TransactionType type; // DATA_READ or DATA_WRITE
 
-	Pending() : op(VICTIM_READ), flash_addr(0), cache_addr(0), victim_tag(0), type(DATA_READ) {};
-        string str() { stringstream out; out << "O=" << op << " F=" << flash_addr << " C=" << cache_addr << " V=" << victim_tag 
+	Pending() : op(VICTIM_READ), back_addr(0), cache_addr(0), victim_tag(0), type(DATA_READ) {};
+        string str() { stringstream out; out << "O=" << op << " F=" << back_addr << " C=" << cache_addr << " V=" << victim_tag 
 		<< " T=" << type; return out.str(); }
 };
 
