@@ -332,7 +332,7 @@ namespace HybridSim
 
 	void Logger::access_page(uint64_t page_addr)
 	{
-		if (pages_used.count(page_addr) == 0)
+	    /*if (pages_used.count(page_addr) == 0)
 		{
 			// Create an entry for a page that has not been previously accessed.
 			pages_used[page_addr] = 0;
@@ -361,6 +361,7 @@ namespace HybridSim
 		cur_count = cur_pages_used[page_addr];
 		cur_count += 1;
 		cur_pages_used[page_addr] = cur_count;
+	    */
 	}
 
         void Logger::access_contention_conflict(uint64_t cache_set)
@@ -872,7 +873,7 @@ namespace HybridSim
 		savefile << "\n\n";
 
 
-		savefile << "================================================================================\n\n";
+		/*savefile << "================================================================================\n\n";
 		savefile << "Pages accessed:\n";
 
 		savefile << flush;
@@ -885,7 +886,7 @@ namespace HybridSim
 			savefile << hex << "0x" << page_addr << " : " << dec << num_accesses << "\n";
 		}
 
-		savefile << "\n\n";
+		savefile << "\n\n";*/
 
 		savefile << "================================================================================\n\n";
 		savefile << "Latency Histogram:\n\n";
