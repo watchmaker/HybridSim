@@ -143,20 +143,15 @@ namespace HybridSim
 	{
 		access_queue.push_back(pair <uint64_t, uint64_t>(addr, currentClockCycle));
 
-		// see if this addr has been accessed before
-		// if it has then record this reuse
-		list<pair <uint64_t, uint64_t>>::iterator it;
-		for (it = last_access.begin(); it != last_access.end(); it++)
+		if(ENABLE_REUSE_LOG)
 		{
-			uint64_t prev_addr = (*it).first;
-			uint64_t prev_cycle = (*it).second;
-
-			if (prev_addr == addr)
-			{
-				uint64_t reuse_distance = currentClockCycle - prev_cycle;
-				reuse(reuse_distance);
-				break;
-			}
+		    // see if this addr has been accessed before	    		    
+		    if(last_access.find(addr) != last_access.end())
+		    {
+			// if it has then record this reuse
+			uint64_t reuse_distance = currentClockCycle - last_access[addr];
+			reuse(reuse_distance);
+		    }
 		}
 
 		if (DEBUG_LOGGER)
@@ -263,33 +258,14 @@ namespace HybridSim
 			this->write_miss_latency(latency);
 		}
 
-		// record the time stamp for reuse distance calculation
-		// this is very similar to the access queue structure but still
-		// different because we're not trying to match the cycle, just the address
-		// also, we're going to update the list entry if it already exists
-		list<pair <uint64_t, uint64_t>>::iterator it;
-		bool existed = false;
-		for (it = last_access.begin(); it != last_access.end(); it++)
-	        {
-			uint64_t prev_addr = (*it).first;
-
-			if (prev_addr == addr)
-			{
-				(*it).second = a.stop;
-				existed = true;
-				break;
-			}
+		if(ENABLE_REUSE_LOG)
+		{
+		    // update or add a new entry to our unordered map for this page access
+		    last_access[addr] = a.stop;
 		}
-		
-		// if the list entry for this address didn't exist, create one
-		if(!existed)
-	        {
-			last_access.push_back(pair <uint64_t, uint64_t>(addr, a.stop));
-		}
-
 		
 		access_map.erase(addr);
-
+		
 		if (DEBUG_LOGGER)
 			debug << "finished access_stop. latency = " << latency << "\n\n";
 	}
@@ -332,36 +308,35 @@ namespace HybridSim
 
 	void Logger::access_page(uint64_t page_addr)
 	{
-	    /*if (pages_used.count(page_addr) == 0)
-		{
-			// Create an entry for a page that has not been previously accessed.
-			pages_used[page_addr] = 0;
-		}
-
-		// At this point, the invariant is that the page entry exists in pages_used
-		// and is >= 0.
-
-		// Load, increment, and store.
-		uint64_t cur_count = pages_used[page_addr];
-		cur_count += 1;
-		pages_used[page_addr] = cur_count;
-
-		// Now do the same for the cur_pages_used (which is for this epoch only).
-
-		if (cur_pages_used.count(page_addr) == 0)
-		{
-			// Create an entry for a page that has not been previously accessed.
-			cur_pages_used[page_addr] = 0;
-		}
-
-		// At this point, the invariant is that the page entry exists in pages_used
-		// and is >= 0.
-
-		// Increment.
-		cur_count = cur_pages_used[page_addr];
-		cur_count += 1;
-		cur_pages_used[page_addr] = cur_count;
-	    */
+	    if (pages_used.count(page_addr) == 0)
+	    {
+		// Create an entry for a page that has not been previously accessed.
+		pages_used[page_addr] = 0;
+	    }
+	    
+	    // At this point, the invariant is that the page entry exists in pages_used
+	    // and is >= 0.
+	    
+	    // Load, increment, and store.
+	    uint64_t cur_count = pages_used[page_addr];
+	    cur_count += 1;
+	    pages_used[page_addr] = cur_count;
+	    
+	    // Now do the same for the cur_pages_used (which is for this epoch only).
+	    
+	    if (cur_pages_used.count(page_addr) == 0)
+	    {
+		// Create an entry for a page that has not been previously accessed.
+		cur_pages_used[page_addr] = 0;
+	    }
+	    
+	    // At this point, the invariant is that the page entry exists in pages_used
+	    // and is >= 0.
+	    
+	    // Increment.
+	    cur_count = cur_pages_used[page_addr];
+	    cur_count += 1;
+	    cur_pages_used[page_addr] = cur_count;
 	}
 
         void Logger::access_contention_conflict(uint64_t cache_set)
@@ -872,7 +847,7 @@ namespace HybridSim
 		savefile << "throughput: " << this->compute_throughput(this->currentClockCycle, num_writes) << " KB/s\n";
 		savefile << "\n\n";
 
-
+		// PaulMod: Not currently printing this because the number of pages accessed winds up being in the millions
 		/*savefile << "================================================================================\n\n";
 		savefile << "Pages accessed:\n";
 
@@ -935,8 +910,6 @@ namespace HybridSim
 			if (set_accesses[set])
 				savefile << set << ": " << set_accesses[set] << "\n";
 		}
-
-		savefile.close();
 
 		savefile << "================================================================================\n\n";
 		savefile << "Set Conflicts:\n\n";

@@ -325,7 +325,7 @@ namespace HybridSim {
 		// transactions to be sent to the CACHE per cycle.
 		// PaulMod: This will just add a clock cycle to a list to simulate a constant delay instead of
 		// calling the other simulators
-		if (!cache_queue.empty() && cache_inflight < CACHE_CONCUR)
+		if (!cache_queue.empty() && (CACHE_CONCUR == 0 || cache_inflight < CACHE_CONCUR))
 		{
 			// create a copy fo the transaction to go on the runing queue
 		        Transaction temp_trans = Transaction(cache_queue.front().transactionType, cache_queue.front().address, cache_queue.front().data);
@@ -346,7 +346,7 @@ namespace HybridSim {
 		// transactions to be sent to the back per cycle.
 		// PaulMod: Again here we're just inserting constant delays into a list instead of using
 		// an complex external simulator
-		if (!back_queue.empty() && back_inflight < BACK_CONCUR)
+		if (!back_queue.empty() && (BACK_CONCUR == 0 || back_inflight < BACK_CONCUR))
 		{
 			// create a copy fo the transaction to go on the runing queue
 		        Transaction temp_trans = Transaction(back_queue.front().transactionType, back_queue.front().address, back_queue.front().data);
@@ -372,11 +372,6 @@ namespace HybridSim {
 		{
 			delay_counter--;
 		}
-
-
-		// Update the logger.
-		if (ENABLE_LOGGER)
-			log.update();
 
 		// Update the memories.
 		// PaulMod: Instead of updating the memories here we're going to see if we've competed
@@ -438,6 +433,10 @@ namespace HybridSim {
 				break;
 			}
 		}
+
+		// Update the logger.
+		if (ENABLE_LOGGER)
+			log.update();
 
 		// Increment the cycle count.
 		step();

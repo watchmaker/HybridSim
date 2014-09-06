@@ -45,6 +45,7 @@ uint64_t HISTOGRAM_BIN = 100;
 uint64_t HISTOGRAM_MAX = 20000;
 uint64_t CONFLICT_BIN = 25;
 uint64_t CONFLICT_MAX = 500;
+uint64_t ENABLE_REUSE_LOG = 0;
 uint64_t REUSE_BIN = 25;
 uint64_t REUSE_MAX = 500;
 
@@ -163,6 +164,8 @@ string NVDIMM_SAVE_FILE = "none";
 				convert_uint64_t(CONFLICT_BIN, value, key);
 			else if (key.compare("CONFLICT_MAX") == 0)
 				convert_uint64_t(CONFLICT_MAX, value, key);
+			else if (key.compare("ENABLE_REUSE_LOG") == 0)
+				convert_uint64_t(ENABLE_REUSE_LOG, value, key);
 			else if (key.compare("REUSE_BIN") == 0)
 				convert_uint64_t(REUSE_BIN, value, key);
 			else if (key.compare("REUSE_MAX") == 0)

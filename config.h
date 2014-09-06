@@ -38,7 +38,7 @@
 #define SEQUENTIAL_PREFETCHING_WINDOW 0
 
 // Stream Buffer Setup.
-#define ENABLE_STREAM_BUFFER 1
+#define ENABLE_STREAM_BUFFER 0
 #define ONE_MISS_TABLE_SIZE 10
 #define NUM_STREAM_BUFFERS 10
 #define STREAM_BUFFER_LENGTH 4
@@ -171,6 +171,7 @@ extern uint64_t HISTOGRAM_BIN;
 extern uint64_t HISTOGRAM_MAX;
 extern uint64_t CONFLICT_BIN;
 extern uint64_t CONFLICT_MAX;
+extern uint64_t ENABLE_REUSE_LOG;
 extern uint64_t REUSE_BIN;
 extern uint64_t REUSE_MAX;
 

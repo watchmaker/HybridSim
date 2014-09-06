@@ -108,6 +108,7 @@ int main(int argc, char *argv[])
 	        case 'u':
 			ss << optarg;
 			ss >> speedup_factor;
+			cout << "speedup factor is now " << speedup_factor << "\n";
 			ss.clear(); // safety
 			break;
 		case 'h':
@@ -188,6 +189,7 @@ int HybridSimTBS::run_trace(string tracefile)
 	bool done = false;
 	uint64_t trans_count = 0;
 
+	
 	// if we're fast forwarding some
 	if(START_TRANS != 0)
 	{
@@ -200,14 +202,29 @@ int HybridSimTBS::run_trace(string tracefile)
 				done = true;
 			}
 		}		
-	}	
+	}
+
+	// C style input to see if it would speed things up
+	//FILE *inFile;
+	//inFile = fopen(tracefile.c_str(), "r");
+	//if (inFile == NULL)
+	//{
+	//    cout << "ERROR: Failed to load tracefile: " << tracefile << "\n";
+	//    abort();
+	//}
 
 	done = false;
 	while (inFile.good() && !done)
+	//while(!feof(inFile) && !done)
 	{
 		// Read the next line.
 		inFile.getline(char_line, 256);
-		line = (string)char_line;
+	        line = (string)char_line; 
+
+		// C style get line to see if that would speed things up
+		//char* char_temp;
+		//char_temp = fgets(char_line, 256, inFile);
+		//line = (string)char_temp;
 
 		// Filter comments out.
 		size_t pos = line.find("#");
@@ -290,6 +307,8 @@ int HybridSimTBS::run_trace(string tracefile)
 
 	inFile.close();
 
+	//fclose(inFile);
+
 
 	//mem->syncAll();
 
@@ -304,8 +323,8 @@ int HybridSimTBS::run_trace(string tracefile)
 	// This is a hack for the moment to ensure that a final write completes.
 	// In the future, we need two callbacks to fix this.
 	// This is not counted towards the cycle counts for the run though.
-	for (int i=0; i<1000000; i++)
-		mem->update();
+	//for (int i=0; i<1000000; i++)
+	//	mem->update();
 
 
 	cout << "\n\n" << mem->currentClockCycle << ": completed " << complete << "\n\n";
