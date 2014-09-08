@@ -36,8 +36,8 @@
 using namespace HybridSim;
 using namespace std;
 
-const uint64_t MAX_PENDING = 36;
-const uint64_t MIN_PENDING = 35;
+const uint64_t MAX_PENDING = 80;
+const uint64_t MIN_PENDING = 79;
 uint64_t complete = 0;
 uint64_t pending = 0;
 uint64_t throttle_count = 0;
