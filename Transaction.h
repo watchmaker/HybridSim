@@ -50,16 +50,17 @@ namespace HybridSim
 			//fields
 			TransactionType transactionType;
 			uint64_t address;
-			void *data;
+			//void *data;
 			//PaulMod: cycle when this trans will be done
 			uint64_t done_cycle;
 
 			//functions
-			Transaction(TransactionType transType, uint64_t addr, void *data)
+			//Transaction(TransactionType transType, uint64_t addr, void *data)
+			Transaction(TransactionType transType, uint64_t addr)
 			{
 				this->transactionType = transType;
 				this->address = addr;
-				this->data = data;
+				//this->data = data;
 				this->done_cycle = 0;
 			}
 

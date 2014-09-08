@@ -328,7 +328,8 @@ namespace HybridSim {
 		if (!cache_queue.empty() && (CACHE_CONCUR == 0 || cache_inflight < CACHE_CONCUR))
 		{
 			// create a copy fo the transaction to go on the runing queue
-		        Transaction temp_trans = Transaction(cache_queue.front().transactionType, cache_queue.front().address, cache_queue.front().data);
+		        //Transaction temp_trans = Transaction(cache_queue.front().transactionType, cache_queue.front().address, cache_queue.front().data);
+		    Transaction temp_trans = Transaction(cache_queue.front().transactionType, cache_queue.front().address);
 
 			// figure out when this will be done and add that delay to our new trans
 			temp_trans.done_cycle = currentClockCycle + CACHE_DELAY;		
@@ -349,7 +350,8 @@ namespace HybridSim {
 		if (!back_queue.empty() && (BACK_CONCUR == 0 || back_inflight < BACK_CONCUR))
 		{
 			// create a copy fo the transaction to go on the runing queue
-		        Transaction temp_trans = Transaction(back_queue.front().transactionType, back_queue.front().address, back_queue.front().data);
+		        //Transaction temp_trans = Transaction(back_queue.front().transactionType, back_queue.front().address, back_queue.front().data);
+		        Transaction temp_trans = Transaction(back_queue.front().transactionType, back_queue.front().address);
 
 			// figure out when this will be done and add that delay to our new trans
 			temp_trans.done_cycle = currentClockCycle + BACK_DELAY;		
@@ -456,7 +458,8 @@ namespace HybridSim {
 		{
 			type = DATA_READ;
 		}
-		Transaction t = Transaction(type, addr, NULL);
+		//Transaction t = Transaction(type, addr, NULL);
+		Transaction t = Transaction(type, addr);
 		return addTransaction(t);
 	}
 
@@ -525,7 +528,8 @@ namespace HybridSim {
 	void HybridSystem::addPrefetch(uint64_t prefetch_addr)
 	{
 		// Create prefetch transaction.
-		Transaction prefetch_transaction = Transaction(PREFETCH, prefetch_addr, NULL);
+		//Transaction prefetch_transaction = Transaction(PREFETCH, prefetch_addr, NULL);
+	        Transaction prefetch_transaction = Transaction(PREFETCH, prefetch_addr);
 
 		// Push the operation onto the front of the transaction queue (so it executes immediately).
 		trans_queue.push_front(prefetch_transaction);
@@ -540,7 +544,8 @@ namespace HybridSim {
 	void HybridSystem::addFlush(uint64_t flush_addr)
 	{
 		// Create flush transaction.
-		Transaction flush_transaction = Transaction(FLUSH, flush_addr, NULL);
+		//Transaction flush_transaction = Transaction(FLUSH, flush_addr, NULL);
+	        Transaction flush_transaction = Transaction(FLUSH, flush_addr);
 
 		// Push the operation onto the front of the transaction queue (so it executes immediately).
 		trans_queue.push_front(flush_transaction);
@@ -578,7 +583,8 @@ namespace HybridSim {
 				uint64_t addr = trans.address + i;
 				cache_pending_wait[cache_addr].insert(addr);
 
-				Transaction t = Transaction(DATA_READ, addr, NULL);
+				//Transaction t = Transaction(DATA_READ, addr, NULL);
+				Transaction t = Transaction(DATA_READ, addr);
 				cache_queue.push_back(t);			
 			}
 			// shouldn't need to delete anything here, the original trans should just disappear here
@@ -922,7 +928,8 @@ namespace HybridSim {
 		{
 #if SINGLE_WORD
 			// Schedule a read from DRAM to get the line being evicted.
-			Transaction t = Transaction(DATA_READ, p.cache_addr, NULL);
+			//Transaction t = Transaction(DATA_READ, p.cache_addr, NULL);
+		        Transaction t = Transaction(DATA_READ, p.cache_addr);
 			pushCache(t, false, p.cache_addr);
 #else
 			// Schedule reads for the entire page.
@@ -931,7 +938,8 @@ namespace HybridSim {
 			{
 				uint64_t addr = p.cache_addr + i*BURST_SIZE;
 				cache_pending_wait[p.cache_addr].insert(addr);
-				Transaction t = Transaction(DATA_READ, addr, NULL);
+				//Transaction t = Transaction(DATA_READ, addr, NULL);
+				Transaction t = Transaction(DATA_READ, addr);
 				pushCache(t, false, p.cache_addr);
 			}
 #endif
@@ -954,7 +962,8 @@ namespace HybridSim {
 				{
 					uint64_t addr = p.cache_addr + i*BURST_SIZE;
 					cache_pending_wait[p.cache_addr].insert(addr);
-					Transaction t = Transaction(DATA_READ, addr, NULL);
+					//Transaction t = Transaction(DATA_READ, addr, NULL);
+					Transaction t = Transaction(DATA_READ, addr);
 					pushCache(t, false, p.cache_addr);
 				}
 			}
@@ -1031,13 +1040,15 @@ namespace HybridSim {
 
 #if SINGLE_WORD
 		// Schedule a write to Back to save the evicted line.
-		Transaction t = Transaction(DATA_WRITE, victim_back_addr, NULL);
+		//Transaction t = Transaction(DATA_WRITE, victim_back_addr, NULL);
+		Transaction t = Transaction(DATA_WRITE, victim_back_addr);
 		pushBack(t);
 #else
 		// Schedule writes for the entire page.
 		for(uint64_t i=0; i<PAGE_SIZE/BACK_BURST_SIZE; i++)
 		{
-			Transaction t = Transaction(DATA_WRITE, victim_back_addr + i*BACK_BURST_SIZE, NULL);
+		    //Transaction t = Transaction(DATA_WRITE, victim_back_addr + i*BACK_BURST_SIZE, NULL);
+			Transaction t = Transaction(DATA_WRITE, victim_back_addr + i*BACK_BURST_SIZE);
 			pushBack(t);
 		}
 #endif
@@ -1063,7 +1074,8 @@ namespace HybridSim {
 
 #if SINGLE_WORD
 		// Schedule a read from Back to get the new line 
-		Transaction t = Transaction(DATA_READ, page_addr, NULL);
+		//Transaction t = Transaction(DATA_READ, page_addr, NULL);
+		Transaction t = Transaction(DATA_READ, page_addr);
 		pushBack(t);
 #else
 		// Schedule reads for the entire page.
@@ -1072,7 +1084,8 @@ namespace HybridSim {
 		{
 			uint64_t addr = page_addr + i*BACK_BURST_SIZE;
 			back_pending_wait[page_addr].insert(addr);
-			Transaction t = Transaction(DATA_READ, addr, NULL);
+			//Transaction t = Transaction(DATA_READ, addr, NULL);
+			Transaction t = Transaction(DATA_READ, addr);
 			pushBack(t);
 		}
 #endif
@@ -1180,13 +1193,15 @@ namespace HybridSim {
 
 #if SINGLE_WORD
 		// Schedule a write to CACHE to simulate the write of the line that was read from Back.
-		Transaction t = Transaction(DATA_WRITE, p.cache_addr, NULL);
+		//Transaction t = Transaction(DATA_WRITE, p.cache_addr, NULL);
+		Transaction t = Transaction(DATA_WRITE, p.cache_addr);
 		pushCache(t, false, p.cache_addr);
 #else
 		// Schedule writes for the entire page.
 		for(uint64_t i=0; i<PAGE_SIZE/BURST_SIZE; i++)
 		{
-			Transaction t = Transaction(DATA_WRITE, p.cache_addr + i*BURST_SIZE, NULL);
+		    //Transaction t = Transaction(DATA_WRITE, p.cache_addr + i*BURST_SIZE, NULL);
+		    Transaction t = Transaction(DATA_WRITE, p.cache_addr + i*BURST_SIZE);
 			pushCache(t, false, p.cache_addr);
 		}
 #endif
@@ -1208,13 +1223,15 @@ namespace HybridSim {
 		// otherwise we're just issuing single reads at a time
 		if(assocStyle == tag_tlb)
 		{
-			Transaction t = Transaction(DATA_READ, data_addr, NULL);
+		    //Transaction t = Transaction(DATA_READ, data_addr, NULL);
+		    Transaction t = Transaction(DATA_READ, data_addr);
 			pushCache(t, false, cache_addr);
 		}
 		// if we're doing the channel associativity thing then we have to issue multiple reads in parallel to get the tags		
 		else
 		{
-			Transaction t = Transaction(DATA_READ, data_addr, NULL);
+		    //Transaction t = Transaction(DATA_READ, data_addr, NULL);
+		    Transaction t = Transaction(DATA_READ, data_addr);
 			pushCache(t, true, cache_addr);
 		}
 
@@ -1259,7 +1276,8 @@ namespace HybridSim {
 		
 		if(assocStyle == direct && !line_read && !p.callback_sent)
 		{
-			Transaction t = Transaction(p.type, p.orig_addr, NULL);
+		    //Transaction t = Transaction(p.type, p.orig_addr, NULL);
+		    Transaction t = Transaction(p.type, p.orig_addr);
             // Do not erase the page from the pending set yet because we're still working with it
 			contention_cache_line_unlock(p.cache_addr);
 			CheckHitMiss(t);
@@ -1280,7 +1298,8 @@ namespace HybridSim {
 			// The line has completed. Delete the wait set object and move on.
 			cache_pending_wait.erase(p.cache_addr);
 
-			Transaction t = Transaction(p.type, p.orig_addr, NULL);
+			//Transaction t = Transaction(p.type, p.orig_addr, NULL);
+			Transaction t = Transaction(p.type, p.orig_addr);
 			// However, do not totally unlock the page from the pending set yet because we're still working with it
 			contention_cache_line_unlock(p.cache_addr);
 			CheckHitMiss(t);
@@ -1308,7 +1327,8 @@ namespace HybridSim {
 		// Compute the actual CACHE address of the data word we care about.
 		uint64_t data_addr = cache_addr + PAGE_OFFSET(back_addr);
 
-		Transaction t = Transaction(DATA_WRITE, data_addr, NULL);
+		//Transaction t = Transaction(DATA_WRITE, data_addr, NULL);
+		Transaction t = Transaction(DATA_WRITE, data_addr);
 		pushCache(t, false, cache_addr);
 
 		// Finish the operation by updating cache state, doing the callback, and removing the pending set.
@@ -2326,7 +2346,8 @@ namespace HybridSim {
 	void HybridSystem::addSync(uint64_t addr)
 	{
 		// Create flush transaction.
-		Transaction t = Transaction(SYNC, addr, NULL);
+		//Transaction t = Transaction(SYNC, addr, NULL);
+	        Transaction t = Transaction(SYNC, addr);
 
 		// Push the operation onto the front of the transaction queue so it stays at the front.
 		trans_queue.push_front(t);
@@ -2344,7 +2365,8 @@ namespace HybridSim {
 	void HybridSystem::addSyncCounter(uint64_t addr, bool initial)
 	{
 		// Create flush transaction.
-		Transaction t = Transaction(SYNC_ALL_COUNTER, addr, NULL);
+		//Transaction t = Transaction(SYNC_ALL_COUNTER, addr, NULL);
+	        Transaction t = Transaction(SYNC_ALL_COUNTER, addr);
 
 		if (initial)
 		{
