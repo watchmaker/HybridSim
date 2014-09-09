@@ -35,6 +35,7 @@
 #include <fstream>
 
 #include "config.h"
+#include "IniReader.h"
 
 
 namespace HybridSim
