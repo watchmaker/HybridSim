@@ -90,10 +90,10 @@ namespace HybridSim
 		}
 
 		// Init the set conflicts.
-		for (uint64_t i = 0; i < NUM_SETS; i++)
-		{
-			set_conflicts[i] = 0;
-		}
+		//for (uint64_t i = 0; i < NUM_SETS; i++)
+		//{
+		//	set_conflicts[i] = 0;
+		//}
 
 		// Init the conflict histogram
 		for (uint64_t i = 0; i <= CONFLICT_MAX; i += CONFLICT_BIN)
@@ -102,15 +102,18 @@ namespace HybridSim
 		}
 
 		// Init the set accesses
-		for (uint64_t i = 0; i < NUM_SETS; i++)
-		{
-			set_accesses[i] = 0;
-		}
+		//for (uint64_t i = 0; i < NUM_SETS; i++)
+		//{
+		//	set_accesses[i] = 0;
+		//}
 		
 		// Init the reuse histogram
-		for (uint64_t i = 0; i <= REUSE_MAX; i += REUSE_BIN)
+		if(ENABLE_REUSE_LOG)
 		{
+		    for (uint64_t i = 0; i <= REUSE_MAX; i += REUSE_BIN)
+		    {
 			reuse_histogram[i] = 0;
+		    }
 		}
 
 		// Resetting the epoch state will initialize it.
@@ -345,8 +348,8 @@ namespace HybridSim
 		// Increment the contention conflict counter for this set.
 	        // This is different from an access conflict, its a contention
 	        // lock conflict
-		uint64_t tmp = contention_conflicts[cache_set];
-		contention_conflicts[cache_set] = tmp + 1;
+		//uint64_t tmp = contention_conflicts[cache_set];
+		//contention_conflicts[cache_set] = tmp + 1;
 	}
 
 	// this just records all the accesses to each set so we can see how evenly they
@@ -354,23 +357,23 @@ namespace HybridSim
 	void Logger::access_set(uint64_t cache_set)
 	{
 		// Increment the access counter for this set.
-		uint64_t tmp = set_accesses[cache_set];
-		set_accesses[cache_set] = tmp + 1;
+		//uint64_t tmp = set_accesses[cache_set];
+		//set_accesses[cache_set] = tmp + 1;
 	}
 
 	void Logger::access_set_conflict(uint64_t cache_set)
 	{
 		// Increment the conflict counter for this set.
-		uint64_t tmp = set_conflicts[cache_set];
-		set_conflicts[cache_set] = tmp + 1;
+		//uint64_t tmp = set_conflicts[cache_set];
+		//set_conflicts[cache_set] = tmp + 1;
 	}
 
 	void Logger::access_miss(uint64_t missed_page, uint64_t victim_page, uint64_t cache_set, uint64_t cache_page, bool dirty, bool valid)
 	{
-		MissedPageEntry m(currentClockCycle, missed_page, victim_page, cache_set, cache_page, dirty, valid);
-		access_set_conflict(cache_set); // PaulMod: record this conflict miss
-		
-		missed_page_list.push_back(m);
+	    //MissedPageEntry m(currentClockCycle, missed_page, victim_page, cache_set, cache_page, dirty, valid);
+	    //	access_set_conflict(cache_set); // PaulMod: record this conflict miss
+	    //	
+	    //	missed_page_list.push_back(m);
 	}
 
 	void Logger::mmio_dropped()
@@ -667,8 +670,8 @@ namespace HybridSim
 			savefile << "average hit latency: " << this->latency_cycles(cur_sum_hit_latency, cur_num_hits) << " cycles";
 			savefile << " (" << this->latency_us(cur_sum_hit_latency, cur_num_hits) << " us)\n";
 			savefile << "throughput: " << this->compute_throughput(EPOCH_LENGTH, cur_num_accesses) << " KB/s\n";
-			savefile << "working set size in pages: " << cur_pages_used.size() << "\n";
-			savefile << "working set size in bytes: " << cur_pages_used.size() * PAGE_SIZE << " bytes\n";
+			//savefile << "working set size in pages: " << cur_pages_used.size() << "\n";
+			//savefile << "working set size in bytes: " << cur_pages_used.size() * PAGE_SIZE << " bytes\n";
 			savefile << "current queue length: " << access_queue.size() << "\n";
 			savefile << "max queue length: " << cur_max_queue_length << "\n";
 			savefile << "average queue length: " << this->divide(cur_sum_queue_length, EPOCH_LENGTH) << "\n";
@@ -709,7 +712,7 @@ namespace HybridSim
 			savefile << "\n\n";
 
 			// Output the missed page data.
-			savefile << "Missed Page Data:\n";
+			/*savefile << "Missed Page Data:\n";
 
 			list<MissedPageEntry>::iterator mit;
 			for (mit = missed_page_list.begin(); mit != missed_page_list.end(); mit++)
@@ -732,7 +735,7 @@ namespace HybridSim
 
 			// Clear the missed page data.
 			missed_page_list.clear();
-			
+			*/
 
 
 			// Close the output file.
@@ -807,8 +810,8 @@ namespace HybridSim
 		savefile << "average hit latency: " << this->latency_cycles(sum_hit_latency, num_hits) << " cycles";
 		savefile << " (" << this->latency_us(sum_hit_latency, num_hits) << " us)\n";
 		savefile << "throughput: " << this->compute_throughput(this->currentClockCycle, num_accesses) << " KB/s\n";
-		savefile << "working set size in pages: " << pages_used.size() << "\n";
-		savefile << "working set size in bytes: " << pages_used.size() * PAGE_SIZE << " bytes\n";
+		//savefile << "working set size in pages: " << pages_used.size() << "\n";
+		//savefile << "working set size in bytes: " << pages_used.size() * PAGE_SIZE << " bytes\n";
 		savefile << "page size: " << PAGE_SIZE << "\n";
 		savefile << "max queue length: " << max_queue_length << "\n";
 		savefile << "average queue length: " << this->divide(sum_queue_length, this->currentClockCycle) << "\n";
@@ -876,7 +879,7 @@ namespace HybridSim
 
 		savefile << "\n\n";
 
-		savefile << "================================================================================\n\n";
+		/*savefile << "================================================================================\n\n";
 
 		generate_conflict_histogram();
 		savefile << "Conflict Histogram:\n\n";
@@ -889,6 +892,7 @@ namespace HybridSim
 		}
 
 		savefile << "\n\n";
+		*/
 
 		savefile << "================================================================================\n\n";
 		savefile << "Reuse Histogram:\n\n";
@@ -902,7 +906,7 @@ namespace HybridSim
 
 		savefile << "\n\n";
 
-		savefile << "================================================================================\n\n";
+		/*savefile << "================================================================================\n\n";
 		savefile << "Set Accesses:\n\n";
 
 		for (uint64_t set = 0; set < NUM_SETS; set++)
@@ -921,6 +925,7 @@ namespace HybridSim
 			if (set_conflicts[set])
 				savefile << set << ": " << set_conflicts[set] << "\n";
 		}
+		*/
 
 		savefile.close();
 	}
