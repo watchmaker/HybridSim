@@ -35,6 +35,7 @@
 #include <fstream>
 
 #include "config.h"
+#include "IniReader.h"
 
 
 namespace HybridSim
@@ -165,7 +166,7 @@ namespace HybridSim
 		// Paul Mod: New logging information
 		unordered_map<uint64_t, uint64_t> conflict_histogram;
 		unordered_map<uint64_t, uint64_t> set_accesses;
-		list<pair <uint64_t, uint64_t> > last_access; // keeps the timestamp of the last access to this address for reuse calculation purposes
+		unordered_map<uint64_t, uint64_t> last_access;
 		unordered_map<uint64_t, uint64_t> reuse_histogram; // reuse distance
 		
 		unordered_map<uint64_t, uint64_t> victim_requested;  // victim address - time from eviction

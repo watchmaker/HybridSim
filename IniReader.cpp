@@ -40,11 +40,17 @@ namespace HybridSim
 uint64_t CONTROLLER_DELAY = 2;
 
 uint64_t ENABLE_LOGGER = 1;
+uint64_t ENABLE_SET_CONFLICT_LOG = 0;
+uint64_t ENABLE_SET_ACCESSES_LOG = 0;
+uint64_t ENABLE_PAGES_USED_LOG = 0;
+uint64_t ENABLE_CONTENTION_LOG = 0;
+uint64_t ENABLE_MISSED_PAGE_LOG = 0;
 uint64_t EPOCH_LENGTH = 200000;
 uint64_t HISTOGRAM_BIN = 100;
 uint64_t HISTOGRAM_MAX = 20000;
 uint64_t CONFLICT_BIN = 25;
 uint64_t CONFLICT_MAX = 500;
+uint64_t ENABLE_REUSE_LOG = 0;
 uint64_t REUSE_BIN = 25000;
 uint64_t REUSE_MAX = 500000;
 
@@ -140,6 +146,16 @@ string NVDIMM_SAVE_FILE = "none";
 				convert_uint64_t(CONTROLLER_DELAY, value, key);
 			else if (key.compare("ENABLE_LOGGER") == 0)
 				convert_uint64_t(ENABLE_LOGGER, value, key);
+			else if (key.compare("ENABLE_SET_CONFLICT_LOG") == 0)
+				convert_uint64_t(ENABLE_SET_CONFLICT_LOG, value, key);
+			else if (key.compare("ENABLE_SET_ACCESSES_LOG") == 0)
+				convert_uint64_t(ENABLE_SET_ACCESSES_LOG, value, key);
+			else if (key.compare("ENABLE_PAGES_USED_LOG") == 0)
+				convert_uint64_t(ENABLE_PAGES_USED_LOG, value, key);
+			else if (key.compare("ENABLE_CONTENTION_LOG") == 0)
+				convert_uint64_t(ENABLE_CONTENTION_LOG, value, key);
+			else if (key.compare("ENABLE_MISSED_PAGE_LOG") == 0)
+				convert_uint64_t(ENABLE_MISSED_PAGE_LOG, value, key);
 			else if (key.compare("EPOCH_LENGTH") == 0)
 				convert_uint64_t(EPOCH_LENGTH, value, key);
 			else if (key.compare("HISTOGRAM_BIN") == 0)
@@ -150,6 +166,8 @@ string NVDIMM_SAVE_FILE = "none";
 				convert_uint64_t(CONFLICT_BIN, value, key);
 			else if (key.compare("CONFLICT_MAX") == 0)
 				convert_uint64_t(CONFLICT_MAX, value, key);
+			else if (key.compare("ENABLE_REUSE_LOG") == 0)
+				convert_uint64_t(ENABLE_REUSE_LOG, value, key);
 			else if (key.compare("REUSE_BIN") == 0)
 				convert_uint64_t(REUSE_BIN, value, key);
 			else if (key.compare("REUSE_MAX") == 0)

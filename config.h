@@ -161,11 +161,17 @@ namespace HybridSim
 extern uint64_t CONTROLLER_DELAY;
 
 extern uint64_t ENABLE_LOGGER;
+extern uint64_t ENABLE_SET_CONFLICT_LOG;
+extern uint64_t ENABLE_SET_ACCESSES_LOG;
+extern uint64_t ENABLE_PAGES_USED_LOG;
+extern uint64_t ENABLE_CONTENTION_LOG;
+extern uint64_t ENABLE_MISSED_PAGE_LOG;
 extern uint64_t EPOCH_LENGTH;
 extern uint64_t HISTOGRAM_BIN;
 extern uint64_t HISTOGRAM_MAX;
 extern uint64_t CONFLICT_BIN;
 extern uint64_t CONFLICT_MAX;
+extern uint64_t ENABLE_REUSE_LOG;
 extern uint64_t REUSE_BIN;
 extern uint64_t REUSE_MAX;
 
