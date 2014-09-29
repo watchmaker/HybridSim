@@ -62,7 +62,7 @@ uint64_t PAGE_SIZE = 4096; // in bytes, so divide this by 64 to get the number o
 uint64_t SET_SIZE = 64; // associativity of cache
 
 uint64_t BURST_SIZE = 64; // number of bytes in a single transaction, this means with PAGE_SIZE=1024, 16 transactions are needed
-uint64_t FLASH_BURST_SIZE = 4096; // number of bytes in a single flash transaction
+uint64_t BACK_BURST_SIZE = 4096; // number of bytes in a single flash transaction
 
 // Number of pages total and number of pages in the cache
 uint64_t TOTAL_PAGES = 2097152/4; // 2 GB
@@ -79,7 +79,7 @@ uint64_t CYCLES_PER_SECOND = 667000000;
 
 // INI files
 string dram_ini = "ini/DDR3_micron_8M_8B_x8_sg15.ini";
-string flash_ini = "ini/samsung_K9XXG08UXM(mod).ini";
+string nvdimm_ini = "ini/samsung_K9XXG08UXM(mod).ini";
 string sys_ini = "ini/system.ini";
 
 // Save/Restore options
@@ -178,8 +178,8 @@ string NVDIMM_SAVE_FILE = "none";
 				convert_uint64_t(SET_SIZE, value, key);
 			else if (key.compare("BURST_SIZE") == 0)
 				convert_uint64_t(BURST_SIZE, value, key);
-			else if (key.compare("FLASH_BURST_SIZE") == 0)
-				convert_uint64_t(FLASH_BURST_SIZE, value, key);
+			else if (key.compare("BACK_BURST_SIZE") == 0)
+				convert_uint64_t(BACK_BURST_SIZE, value, key);
 			else if (key.compare("TOTAL_PAGES") == 0)
 				convert_uint64_t(TOTAL_PAGES, value, key);
 			else if (key.compare("CACHE_PAGES") == 0)
@@ -233,8 +233,8 @@ string NVDIMM_SAVE_FILE = "none";
 				convert_uint64_t(CYCLES_PER_SECOND, value, key);
 			else if (key.compare("dram_ini") == 0)
 				dram_ini = value;
-			else if (key.compare("flash_ini") == 0)
-				flash_ini = value;
+			else if (key.compare("nvdimm_ini") == 0)
+				nvdimm_ini = value;
 			else if (key.compare("sys_ini") == 0)
 				sys_ini = value;
 			else if (key.compare("ENABLE_RESTORE") == 0)

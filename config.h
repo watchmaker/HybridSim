@@ -178,7 +178,7 @@ extern uint64_t REUSE_MAX;
 extern uint64_t PAGE_SIZE; // in bytes, so divide this by 64 to get the number of DDR3 transfers per page
 extern uint64_t SET_SIZE; // associativity of cache
 extern uint64_t BURST_SIZE; // number of bytes in a single transaction, this means with PAGE_SIZE=1024, 16 transactions are needed
-extern uint64_t FLASH_BURST_SIZE; // number of bytes in a single flash transaction
+extern uint64_t BACK_BURST_SIZE; // number of bytes in a single flash transaction
 
 // Number of pages total and number of pages in the cache
 extern uint64_t TOTAL_PAGES; // 2 GB
@@ -207,7 +207,7 @@ extern uint64_t CYCLES_PER_SECOND;
 
 // INI files
 extern string dram_ini;
-extern string flash_ini;
+extern string nvdimm_ini;
 extern string sys_ini;
 
 // Save/Restore options
@@ -226,7 +226,7 @@ extern string NVDIMM_SAVE_FILE;
 #define PAGE_OFFSET(addr) (addr % PAGE_SIZE)
 #define SET_INDEX(addr) (PAGE_NUMBER(addr) % NUM_SETS)
 #define TAG(addr) (PAGE_NUMBER(addr) / NUM_SETS)
-#define FLASH_ADDRESS(tag, set) ((tag * NUM_SETS + set) * PAGE_SIZE)
+#define BACK_ADDRESS(tag, set) ((tag * NUM_SETS + set) * PAGE_SIZE)
 #define ALIGN(addr) (((addr / BURST_SIZE) * BURST_SIZE) % (TOTAL_PAGES * PAGE_SIZE))
 
 // TLB derived parameters
@@ -277,15 +277,15 @@ class Pending
 	public:
 	PendingOperation op; // What operation is being performed.
 	uint64_t orig_addr;
-	uint64_t flash_addr;
+	uint64_t back_addr;
 	uint64_t cache_addr;
 	uint64_t victim_tag;
 	bool victim_valid;
 	bool callback_sent;
 	TransactionType type; // DATA_READ or DATA_WRITE
 
-	Pending() : op(VICTIM_READ), flash_addr(0), cache_addr(0), victim_tag(0), type(DATA_READ) {};
-        string str() { stringstream out; out << "O=" << op << " F=" << flash_addr << " C=" << cache_addr << " V=" << victim_tag 
+	Pending() : op(VICTIM_READ), back_addr(0), cache_addr(0), victim_tag(0), type(DATA_READ) {};
+        string str() { stringstream out; out << "O=" << op << " F=" << back_addr << " C=" << cache_addr << " V=" << victim_tag 
 		<< " T=" << type; return out.str(); }
 };
 

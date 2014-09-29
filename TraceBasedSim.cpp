@@ -269,8 +269,8 @@ int HybridSimTBS::run_trace(string tracefile)
 
 
 	cout << "\n\n" << mem->currentClockCycle << ": completed " << complete << "\n\n";
-	cout << "dram_pending=" << mem->dram_pending.size() << " flash_pending=" << mem->flash_pending.size() << "\n\n";
-	cout << "dram_queue=" << mem->dram_queue.size() << " flash_queue=" << mem->flash_queue.size() << "\n\n";
+	cout << "cache_pending=" << mem->cache_pending.size() << " back_pending=" << mem->back_pending.size() << "\n\n";
+	cout << "cache_queue=" << mem->cache_queue.size() << " back_queue=" << mem->back_queue.size() << "\n\n";
 	cout << "pending_pages=" << mem->pending_pages.size() << "\n\n";
 	for (unordered_map<uint64_t, uint64_t>::iterator it = mem->pending_pages.begin(); it != mem->pending_pages.end(); it++)
 	{
@@ -278,9 +278,9 @@ int HybridSimTBS::run_trace(string tracefile)
 	}
 	cout << "\n\n";
 	cout << "pending_count=" << mem->pending_count << "\n\n";
-	cout << "dram_pending_set.size() =" << mem->dram_pending_set.size() << "\n\n";
-	cout << "dram_bad_address.size() = " << mem->dram_bad_address.size() << "\n";
-	for (list<uint64_t>::iterator it = mem->dram_bad_address.begin(); it != mem->dram_bad_address.end(); it++)
+	cout << "cache_pending_set.size() =" << mem->cache_pending_set.size() << "\n\n";
+	cout << "cache_bad_address.size() = " << mem->cache_bad_address.size() << "\n";
+	for (list<uint64_t>::iterator it = mem->cache_bad_address.begin(); it != mem->cache_bad_address.end(); it++)
 	{
 		cout << (*it) << " ";
 	}
