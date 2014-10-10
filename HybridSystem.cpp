@@ -92,8 +92,6 @@ namespace HybridSim {
 		DRAMSim::TransactionCompleteCB *write_cb = new dramsim_callback_t(this, &HybridSystem::BackWriteCallback);
 		back->RegisterCallbacks(read_cb, write_cb, NULL);
 
-		
-
 		// Need to check the queue when we start.
 		check_queue = true;
 
@@ -230,6 +228,16 @@ namespace HybridSim {
 				abort();
 			}
 		}
+
+		if (DEBUG_SET_ADDRESSES)
+		{
+			debug_set_addresses.open("set_addresses.log", ios_base::out | ios_base::trunc);
+			if (!debug_set_addresses.is_open())
+			{
+				cerr << "ERROR: HybridSim debug_set_address file failed to open.\n";
+				abort();
+			}
+		}
 	}
 
 	HybridSystem::~HybridSystem()
@@ -242,6 +250,9 @@ namespace HybridSim {
 
 		if (DEBUG_FULL_TRACE)
 			debug_full_trace.close();
+		
+		if(DEBUG_SET_ADDRESSES)
+			debug_set_addresses.close();
 	}
 
 	// static allocator for the library interface
@@ -403,6 +414,9 @@ namespace HybridSim {
 		llcache->update();
 		back->update();
 
+		// Update the tag buffer, not sure if we need this right now but here it is
+		tbuff.update();
+
 		// Increment the cycle count.
 		step();
 	}
@@ -524,51 +538,71 @@ namespace HybridSim {
 		return true;
 	}
 
-	void HybridSystem::ProcessTransaction(Transaction &trans)
+	uint64_t HybridSystem::getComboDataAddr(uint64_t set_index, uint64_t i)
+	{
+		// accounts for how many accesses each set takes up
+		uint64_t set_piece = (set_index / llcache->NUM_CHANNELS) * SET_SIZE;
+		// accounts for the accesses that are lost because they are either used for tags or can't be used
+		uint64_t waste_piece = (((set_index / llcache->NUM_CHANNELS) / SETS_PER_LINE) + 1) * (TAG_OFFSET + WASTE_OFFSET);
+		// accounts for the number of accesses to add in order to space adjacent sets out across different channels
+		uint64_t channel_piece = (set_index % llcache->NUM_CHANNELS) * llcache->BLOCKS_PER_CHANNEL;
+		// add it all up to get your address
+		return (set_piece + waste_piece + channel_piece + i) * PAGE_SIZE;
+	}
+
+        void HybridSystem::HitCheck(Transaction &trans)
 	{
 		// trans.address is the original address that we must use to callback.
 		// But for our processing, we must use an aligned address (which is aligned to a page in the NV address space).
 		uint64_t addr = ALIGN(trans.address);
-
-
-		if (trans.transactionType == SYNC_ALL_COUNTER)
-		{
-			// SYNC_ALL_COUNTER transactions are handled elsewhere.
-			syncAllCounter(addr, trans);
-			return;
-		}
-
-
-		if (DEBUG_CACHE)
-			cerr << "\n" << currentClockCycle << ": " << "Starting transaction for address " << addr << endl;
-
-
-		if (addr >= (TOTAL_PAGES * PAGE_SIZE))
-		{
-			// Note: This should be technically impossible due to the modulo in ALIGN. But this is just a sanity check.
-			cerr << "ERROR: Address out of bounds - orig:" << trans.address << " aligned:" << addr << "\n";
-			abort();
-		}
-
-		// Compute the set number and tag
+		
+			// Compute the set number and tag
 		uint64_t set_index = SET_INDEX(addr);
 		uint64_t tag = TAG(addr);
+
+		if(DEBUG_SET_ADDRESSES)
+		{
+			debug_set_addresses << "=================================================\n";
+			debug_set_addresses << "address is: " << addr << "\n"; 
+			debug_set_addresses << "set index is " << set_index << "\n";
+			debug_set_addresses << "address list is : \n";
+		}
 
 		if(ENABLE_LOGGER)
 			log.access_set(set_index);
 
-		// Generating the set list for this set
 		list<uint64_t> set_address_list;
-		for (uint64_t i=0; i<SET_SIZE; i++)
-		{
-			uint64_t next_address = (i * NUM_SETS + set_index) * PAGE_SIZE;
-			set_address_list.push_back(next_address);
-		}
-
 		bool hit = false;
 		uint64_t cache_address = *(set_address_list.begin());
 		uint64_t cur_address;
 		cache_line cur_line;
+
+		// generate the memory address list for this set
+		for (uint64_t i=0; i<SET_SIZE; i++)
+		{
+			uint64_t next_address = 0;
+			if(assocVersion == channel)
+			{			
+				next_address = (set_index * SET_SIZE) * (i * PAGE_SIZE);
+			}
+			else if(assocVersion == combo_tag)
+			{
+				next_address = getComboAddr(set_index, i);
+			}
+			else
+			{
+				next_address = (i * NUM_SETS + set_index) * PAGE_SIZE;
+			}
+
+			if(DEBUG_SET_ADDRESSES)
+			{
+				debug_set_addresses << "NUM_SETS is " << NUM_SETS << " set_index is " << set_index << " PAGE_SIZE is " << PAGE_SIZE << "\n";
+				debug_set_addresses << "way " << i << " address is: " << next_address << " (hex: " << hex << next_address << dec << " )\n";
+			}
+			set_address_list.push_back(next_address);
+		}
+
+		// see if we have a hit
 		for (list<uint64_t>::iterator it = set_address_list.begin(); it != set_address_list.end(); ++it)
 		{
 			cur_address = *it;
@@ -577,24 +611,22 @@ namespace HybridSim {
 				// If i is not allocated yet, allocate it.
 				cache[cur_address] = cache_line();
 			}
-
-			cur_line = cache[cur_address];
 			
-			// Found a match so its a hit
+			cur_line = cache[cur_address];
+				
 			if (cur_line.valid && (cur_line.tag == tag))
 			{
 				hit = true;
 				cache_address = cur_address;
-
+				
 				if (DEBUG_CACHE)
 				{
 					cerr << currentClockCycle << ": " << "HIT: " << cur_address << " " << " " << cur_line.str() << 
 						" (set: " << set_index << ")" << endl;
 				}
-
+				
 				break;
 			}
-
 		}
 
 		// Place access_process here and combine it with access_cache.
@@ -644,7 +676,26 @@ namespace HybridSim {
 
 			// Issue operation to the CACHE.
 			if (trans.transactionType == DATA_READ)
-				CacheRead(trans.address, addr, cache_address);
+			{
+				if(assocVersion == tag_tlb)
+				{
+					CacheRead(trans.address, addr, cache_address, trans, false);
+				}
+				// we issued a read to the cache to get the tags but now we have to issue a read
+				// to get the data
+				else if(assocVersion == combo_tag)
+				{
+					CacheRead(trans.address, addr, cache_address, trans, false);
+				}
+				// if we're not doing a separate tag cache then we don't need to issue any reads here
+				// we already issued a read to get the data from the cache
+				// instead we're just done now
+				else
+				{
+					contention_unlock(addr, trans.address, "CACHE_READ", false, 0, true, cache_address);
+					ReadDoneCallback(systemID, trans.address, currentClockCycle);
+				}
+			}
 			else if(trans.transactionType == DATA_WRITE)
 				CacheWrite(trans.address, addr, cache_address);
 			else if(trans.transactionType == FLUSH)
@@ -748,7 +799,7 @@ namespace HybridSim {
 			p.callback_sent = false;
 			p.type = trans.transactionType;
 
-			// Read the line that missed from the NVRAM.
+			// Read the line that missed from the backing store.
 			// This is started immediately to minimize the latency of the waiting user of HybridSim.
 			LineRead(p);
 
@@ -758,6 +809,166 @@ namespace HybridSim {
 				VictimRead(p);
 			}
 		}
+	}
+
+	// helper method that returns the tag location within a row
+	
+	// helper method that does the math to find the tags for a set of data
+	// put into its own function to avoid code repetition
+	uint64_t HybridSystem::getComboTagAddr(uint64_t set_index, uint64_t data_address)
+	{
+		AddressSet address_stuff = decoder.getDecode(data_address);
+				
+		uint64_t set_index_mod = (set_index / NUM_CHANNELS) % SETS_PER_LINE;
+		uint64_t set_index_pos = 0;
+		if(set_index_mod < (SETS_PER_TAG_GROUP + EXTRA_SETS_FOR_ZERO_GROUP))
+		{
+			set_index_pos = (set_index_mod) / (SETS_PER_TAG_GROUP + EXTRA_SETS_FOR_ZERO_GROUP);
+		}
+		else
+		{
+			set_index_pos = (set_index_mod-EXTRA_SETS_FOR_ZERO_GROUP) / (SETS_PER_TAG_GROUP);
+		}
+		
+		return ((llcache->COL_PER_ROW * (address_stuff.row + llcache->ROWS_PER_BANK * 
+								   (address_stuff.bank + llcache->BANKS_PER_RANK * 
+								    (address_stuff.rank + (llcache->RANKS_PER_CHAN * 
+											   address_stuff.channel))))) + 
+					  set_index_pos) * PAGE_SIZE;
+	}
+
+	void HybridSystem::ProcessTransaction(Transaction &trans)
+	{
+		// trans.address is the original address that we must use to callback.
+		// But for our processing, we must use an aligned address (which is aligned to a page in the NV address space).
+		uint64_t addr = ALIGN(trans.address);
+
+
+		if (trans.transactionType == SYNC_ALL_COUNTER)
+		{
+			// SYNC_ALL_COUNTER transactions are handled elsewhere.
+			syncAllCounter(addr, trans);
+			return;
+		}
+
+
+		if (DEBUG_CACHE)
+			cerr << "\n" << currentClockCycle << ": " << "Starting transaction for address " << addr << endl;
+
+
+		if (addr >= (TOTAL_PAGES * PAGE_SIZE))
+		{
+			// Note: This should be technically impossible due to the modulo in ALIGN. But this is just a sanity check.
+			cerr << "ERROR: Address out of bounds - orig:" << trans.address << " aligned:" << addr << "\n";
+			abort();
+		}
+
+		if(assocVersion == tag_tlb)				
+		{
+			CheckHitMiss(trans);
+		}
+		// we're simulating storing the tags in dram, so we have to access dram first and then see if the tag is what we're looking for
+		// we have an associative cache and we're distributing the ways across channels
+		else if(assocVersion == channel)
+		{
+			// Compute the set number and tag
+			uint64_t set_index = SET_INDEX(addr);
+			
+			if(DEBUG_SET_ADDRESSES)
+			{
+				debug_set_addresses << "=================================================\n";
+				debug_set_addresses << "address is: " << addr << "\n"; 
+				debug_set_addresses << "set index is " << set_index << "\n";
+				debug_set_addresses << "address list is : \n";
+			}
+
+			uint64_t cache_address = set_index * SET_SIZE * PAGE_SIZE;
+			if(DEBUG_SET_ADDRESSES)
+			{
+				debug_set_addresses << "NUM_SETS is " << NUM_SETS << " set_index is " << set_index << " PAGE_SIZE is " << PAGE_SIZE << "\n";
+				debug_set_addresses << "way 0  address is: " << cache_address << " (hex: " << hex << cache_address << dec << " )\n";
+			}
+			
+			contention_cache_line_lock(cache_address);
+			CacheRead(trans.address, addr, cache_address, trans, true);
+		}
+		// we're implementing the loh cache so we're issuing a cache lookup transaction to the first way in the set
+		else if(assocImplementation == loh)
+		{
+		}
+		// we're doing the combo tag thing, so we need to know what is in the tag cache to see if we need to do a lookup
+		else if(assocImplementation == combo_tag)
+		{
+			// Compute the set number and tag
+			uint64_t set_index = SET_INDEX(addr);
+
+			// first see if we alrady have the tags for this set
+			if(tbuff.haveTags(set_index))
+			{
+				// if we do have the tags then there's no need to issue a tag lookup to the cache
+				// so we just go directly to the check tags phase
+				CheckHitMiss(trans);
+			}
+			else
+			{
+				// if we don't have the tags then we have to issue a tag lookup to the cache
+
+				if(DEBUG_SET_ADDRESSES)
+				{
+					debug_set_addresses << "=================================================\n";
+					debug_set_addresses << "address is: " << addr << "\n"; 
+					debug_set_addresses << "set index is " << set_index << "\n";
+					debug_set_addresses << "address list is : \n";
+				}
+				
+				// this is the location of the set data that we want
+				// we use this to get the channel, rank, bank and row of the tag that we want
+				uint64_t data_address = getComboDataAddr(set_index, 0);
+
+				uint64_t cache_address = getComboTagAddr(set_index, data_address);
+
+				if(DEBUG_CACHE_ADDRESSES)
+				{
+					debug_cache_addresses << "NUM_SETS is " << NUM_SETS << " set_index is " << set_index << " PAGE_SIZE is " << PAGE_SIZE << "\n";
+					debug_cache_addresses << "way 0  address is: " << cache_address << " (hex: " << hex << cache_address << dec << " )\n";
+				}
+				
+				contention_cache_line_lock(cache_address);
+				CacheRead(trans.address, addr, cache_address, trans, true);
+			}
+			
+		}
+		// we have a direct mapped cache so we're just issuing one transaction to the cache
+		else
+		{
+			// Compute the set number and tag
+			uint64_t set_index = SET_INDEX(addr);
+			uint64_t cache_address = (set_index) * PAGE_SIZE;
+			
+			if(DEBUG_SET_ADDRESSES)
+			{
+				debug_set_addresses << "=================================================\n";
+				debug_set_addresses << "address is: " << addr << "\n"; 
+				debug_set_addresses << "set index is " << set_index << "\n";
+				debug_set_addresses << "address list is : \n";
+
+				debug_set_addresses << "NUM_SETS is " << NUM_SETS << " set_index is " << set_index << " PAGE_SIZE is " << PAGE_SIZE << "\n";
+				debug_set_addresses << "way 0  address is: " << cache_address << " (hex: " << hex << cache_address << dec << " )\n";
+			}
+			
+			contention_cache_line_lock(cache_address);
+			CacheRead(trans.address, addr, cache_address, trans, true);
+		}	
+	}
+
+	// this is a helper function that handles the case where we would have a victim read
+	// but we've already gotten the data as part of a tag lookup
+	void HybridSystem::AlreadyReadVictim(Pending p)
+	{
+		uint64_t data_addr = p.cache_addr + PAGE_OFFSET(p.back_addr);
+		cache_pending.erase(p.cache_addr);
+		VictimReadFinish(p.orig_addr, p);
+		cache_pending_set.erase(data_addr);
 	}
 
 	void HybridSystem::VictimRead(Pending p)
@@ -773,26 +984,56 @@ namespace HybridSim {
 		// and VictimRead (if needed) are completely done.
 		contention_increment(p.back_addr);
 
-#if SINGLE_WORD
-		// Schedule a read from CACHE to get the line being evicted.
-		Transaction t = Transaction(DATA_READ, p.cache_addr, NULL);
-		cache_queue.push_back(t);
-#else
-		// Schedule reads for the entire page.
-		cache_pending_wait[p.cache_addr] = unordered_set<uint64_t>();
-		for(uint64_t i=0; i<PAGE_SIZE/BURST_SIZE; i++)
-		{
-			uint64_t addr = p.cache_addr + i*BURST_SIZE;
-			cache_pending_wait[p.cache_addr].insert(addr);
-			Transaction t = Transaction(DATA_READ, addr, NULL);
-			cache_queue.push_back(t);
-		}
-#endif
-
 		// Add a record in the CACHE's pending table.
 		p.op = VICTIM_READ;
 		assert(cache_pending.count(p.cache_addr) == 0);
 		cache_pending[p.cache_addr] = p;
+
+		if(assocVersion == tag_tlb)
+		{
+#if SINGLE_WORD
+			// Schedule a read from CACHE to get the line being evicted.
+			Transaction t = Transaction(DATA_READ, p.cache_addr, NULL);
+			cache_queue.push_back(t);
+#else
+			// Schedule reads for the entire page.
+			cache_pending_wait[p.cache_addr] = unordered_set<uint64_t>();
+			for(uint64_t i=0; i<PAGE_SIZE/BURST_SIZE; i++)
+			{
+				uint64_t addr = p.cache_addr + i*BURST_SIZE;
+				cache_pending_wait[p.cache_addr].insert(addr);
+				Transaction t = Transaction(DATA_READ, addr, NULL);
+				cache_queue.push_back(t);
+			}
+#endif
+		}
+		else
+		{
+#if SINGLE_WORD
+			// if we're doing in dram tags then we already have the data
+			// so just use the simple helper function rather than scheduling another read
+			AlreadyVictimRead(p);
+#else
+			// Schedule reads for the page but issue one lses than the other case because we've alread read one of the pages
+			cache_pending_wait[p.cache_addr] = unordered_set<uint64_t>();
+			if(PAGE_SIZE/BURST_SIZE > 1)
+			{
+				for(uint64_t i=1; i<PAGE_SIZE/BURST_SIZE; i++)
+				{
+					uint64_t addr = p.cache_addr + i*BURST_SIZE;
+					cache_pending_wait[p.cache_addr].insert(addr);
+					Transaction t = Transaction(DATA_READ, addr, NULL);
+					cache_queue.push_back(t);
+				}
+			}
+			// if there was just one read per page anyway, then we've already read that and we're done
+			else
+			{
+				AlreadyVictimRead(p);
+			}
+#endif
+		}	
+		
 	}
 
 	void HybridSystem::VictimReadFinish(uint64_t addr, Pending p)
@@ -977,6 +1218,27 @@ namespace HybridSim {
 		// Schedule LineWrite operation to store the line in CACHE.
 		LineWrite(p);
 
+		// if we're storing tags along with data, then we need to write the new tag data into the cache as well
+		if(assocVersion != tag_tlb && ENABLE_TAG_WRITE)
+		{
+			Pending tp;
+			tp.op = TAG_WRITE;
+			tp.orig_addr = p.orig_addr;
+			tp.back_addr = p.back_addr;
+			
+			// calculate the tag address
+			uint64_t tag_address = getComboTagAddr(set_index, p.cache_address);
+
+			tp.cache_addr = tag_address;
+			tp.victim_tag = p.victim_tag;
+			tp.victim_valid = p.victim_valid;
+			tp.callback_sent = false;
+			tp.type = p.type;
+
+			// schedule the write the memory for this tag
+			LineWrite(tp);
+		}
+
 		// Use the CacheReadFinish/CacheWriteFinish functions to mark the page dirty (DATA_WRITE only), perform
 		// the callback to the requesting module, and remove this set from the pending sets to allow future
 		// operations to this set to start.
@@ -1023,18 +1285,37 @@ namespace HybridSim {
 	}
 
 
-	void HybridSystem::CacheRead(uint64_t orig_addr, uint64_t back_addr, uint64_t cache_addr)
+	void HybridSystem::CacheRead(uint64_t orig_addr, uint64_t back_addr, uint64_t cache_addr, Transaction &trans, bool tag_lookup)
 	{
 		if (DEBUG_CACHE)
 			cerr << currentClockCycle << ": " << "Performing CACHE_READ for (" << back_addr << ", " << cache_addr << ")\n";
 
 		// Compute the actual CACHE address of the data word we care about.
 		uint64_t data_addr = cache_addr + PAGE_OFFSET(back_addr);
-
 		assert(cache_addr == PAGE_ADDRESS(data_addr));
 
-		Transaction t = Transaction(DATA_READ, data_addr, NULL);
-		cache_queue.push_back(t);
+		
+
+		// if we're doing the channel tag lookup scheme then we need to issue a read to each channel to get that channel's tags
+		if(assocVersion == channel)
+		{
+			for(uint64_t i=0; i<SET_SIZE; i++)
+			{
+				// we adjust the addresses very slightly here to ensure that we can tell them apart
+				// in the contention locking code
+				// TODO: These addresses need to be adjusted so they access the different ways
+				uint64_t addr = data_addr + (i * PAGE_SIZE);
+				cache_pending_wait[cache_addr].insert(addr);
+
+				Transaction t = Transaction(DATA_READ, addr, NULL);
+				cache_queue.push_back(t);			
+			}
+		}		
+		else
+		{
+			Transaction t = Transaction(DATA_READ, data_addr, NULL);
+			cache_queue.push_back(t);
+		}
 
 		// Update the cache state
 		// This could be done here or in CacheReadFinish
@@ -1049,14 +1330,22 @@ namespace HybridSim {
 
 		// Add a record in the CACHE's pending table.
 		Pending p;
-		p.op = CACHE_READ;
+		if(tag_lookup)
+		{
+			p.op = TAG_READ;
+			p.tag_addr = cache_addr;
+		}
+		else
+		{
+			p.op = CACHE_READ;
+			p.cache_addr = cache_addr;
+		}
 		p.orig_addr = orig_addr;
-		p.back_addr = back_addr;
-		p.cache_addr = cache_addr;
+		p.back_addr = back_addr;		
 		p.victim_tag = 0;
 		p.victim_valid = false;
 		p.callback_sent = false;
-		p.type = DATA_READ;
+		p.type = trans.transactionType;
 		assert(cache_pending.count(data_addr) == 0);
 		cache_pending[data_addr] = p;
 
@@ -1064,22 +1353,71 @@ namespace HybridSim {
 		assert(cache_pending.count(data_addr) != 0);
 	}
 
-	void HybridSystem::CacheReadFinish(uint64_t addr, Pending p)
+	void HybridSystem::CacheReadFinish(uint64_t addr, Pending p, bool line_read)
 	{
 		if (DEBUG_CACHE)
 			cerr << currentClockCycle << ": " << "CACHE_READ callback for (" << p.back_addr << ", " << p.cache_addr << ")\n";
 
-		// Read operation has completed, call the top level callback.
-		// Only do this if it hasn't been sent already by the critical cache line first callback.
-		// Also, do not do this for prefetch since it does not have an external caller waiting on it.
-		if (!p.callback_sent)
-			ReadDoneCallback(systemID, p.orig_addr, currentClockCycle);
-
 		// Erase the page from the pending set.
-		// Note: the if statement is needed to ensure that the VictimRead operation (if it was invoked as part of a cache miss)
-		// is already complete. If not, the pending_set removal will be done in VictimReadFinish().
 		uint64_t victim_address = BACK_ADDRESS(p.victim_tag, SET_INDEX(p.cache_addr));
-		contention_unlock(p.back_addr, p.orig_addr, "CACHE_READ", p.victim_valid, victim_address, true, p.cache_addr);
+		if(assocVersion == direct && !line_read && !p.callback_sent)
+		{
+			
+			Transaction t = Transaction(p.type, p.orig_addr, NULL);
+            // Do not erase the page from the pending set yet because we're still working with it
+			contention_cache_line_unlock(p.cache_addr);
+			CheckHitMiss(t);
+		}
+		else if(assocVersion == combo_tag && !line_read && !p.callback_sent && p.op == TAG_READ)
+		{
+			// update the tag buffer to now hold the stuff we just got
+			// figure out what data address tags we just got
+			for (uint64_t i=0; i<SET_SIZE; i++)
+			{
+				uint64_t next_address = 0;
+				next_address = getComboAddr(set_index, i);
+			}
+			tbuff.addTags(
+			
+			Transaction t = Transaction(p.type, p.orig_addr, NULL);
+            // Do not erase the page from the pending set yet because we're still working with it
+			contention_cache_line_unlock(p.cache_addr);
+			CheckHitMiss(t);
+		}
+		else if(assocVersion == channel && !line_read && !p.callback_sent)
+		{
+			// Remove the read that just finished from the wait set.
+			cache_pending_wait[p.cache_addr].erase(addr);
+			
+			if (!cache_pending_wait[p.cache_addr].empty())
+			{
+				// If not done with this line, then re-enter pending map.
+				cache_pending[p.cache_addr] = p;
+				cache_pending_set.erase(addr);
+				return;
+			}
+			
+			// The line has completed. Delete the wait set object and move on.
+			cache_pending_wait.erase(p.cache_addr);
+			
+			Transaction t = Transaction(p.type, p.orig_addr, NULL);
+			// However, do not totally unlock the page from the pending set yet because we're still working with it
+			contention_cache_line_unlock(p.cache_addr);
+			CheckHitMiss(t);
+		}
+		else
+		{			
+			// Read operation has completed, call the top level callback.
+			// Only do this if it hasn't been sent already by the critical cache line first callback.
+			// Also, do not do this for prefetch since it does not have an external caller waiting on it.
+			if (!p.callback_sent)
+				ReadDoneCallback(systemID, p.orig_addr, currentClockCycle);
+			
+			// Erase the page from the pending set.
+			// Note: the if statement is needed to ensure that the VictimRead operation (if it was invoked as part of a cache miss)
+			// is already complete. If not, the pending_set removal will be done in VictimReadFinish().	    
+			contention_unlock(p.back_addr, p.orig_addr, "CACHE_READ", p.victim_valid, victim_address, true, p.cache_addr);
+		}		
 	}
 
 	void HybridSystem::CacheWrite(uint64_t orig_addr, uint64_t back_addr, uint64_t cache_addr)
@@ -1106,7 +1444,6 @@ namespace HybridSim {
 		p.type = DATA_WRITE;
 
 		CacheWriteFinish(p);
-
 	}
 
 	//void HybridSystem::CacheWriteFinish(uint64_t orig_addr, uint64_t back_addr, uint64_t cache_addr, bool callback_sent)
@@ -1628,9 +1965,16 @@ namespace HybridSim {
 			if (p.op == VICTIM_READ)
 			{
 				VictimReadFinish(addr, p);
+				cache_pending_set.erase(addr);
 			}
 			else if (p.op == CACHE_READ)
 			{
+				CacheReadFinish(addr, p, 0);
+				cache_pending_set.erase(addr);
+			}
+			else if (p.op == TAG_READ)
+			{
+				cache_pending_set.erase(addr);
 				CacheReadFinish(addr, p);
 			}
 			else
@@ -1644,9 +1988,6 @@ namespace HybridSim {
 			ERROR("CACHEReadCallback received an address not in the pending set.");
 			abort();
 		}
-
-		// Erase from the pending set AFTER everything else (so I can see if failed values are in the pending set).
-		cache_pending_set.erase(addr);
 	}
 
     void HybridSystem::CacheWriteCallback(uint64_t id, uint64_t addr, uint64_t cycle,  bool unmapped)
@@ -2056,7 +2397,11 @@ namespace HybridSim {
 		uint64_t set_index = SET_INDEX(page_addr);
 		if (set_counter.count(set_index) > 0)
 		{
-			if (set_counter[set_index] == SET_SIZE)
+			if (assocVersion != tag_tlb && set_counter[set_index] >= 1)
+			{
+				return false;
+			}
+			else if (set_counter[set_index] == SET_SIZE)
 			{
 				return false;
 			}

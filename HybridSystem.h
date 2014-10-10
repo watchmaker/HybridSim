@@ -40,6 +40,8 @@
 #include "CallbackHybrid.h"
 #include "Logger.h"
 #include "IniReader.h"
+#include "TagBuffer.h"
+#include "AddressDecode.h"
 
 using std::string;
 typedef unsigned int uint;
@@ -83,10 +85,16 @@ namespace HybridSim
 		void restoreCacheTable();
 		void saveCacheTable();
 
-
 		// Helper functions
+		uint64_t getComboAddr(uint64_t set_index, uint64_t i);
+
+		// PaulMod: this enables different tag lookup implementations by allowing us to check for a hit either before and after accessing the main memory
+		void HitCheck(Transaction &trans);
+
+		uint64_t getComboAddr(uint64_t set_index, uint64_t i);
 		void ProcessTransaction(Transaction &trans);
 
+		void AlreadyReadVictim(Pending p);
 		void VictimRead(Pending p);
 		void VictimReadFinish(uint64_t addr, Pending p);
 
@@ -97,8 +105,8 @@ namespace HybridSim
 
 		void LineWrite(Pending p);
 
-		void CacheRead(uint64_t orig_addr, uint64_t back_addr, uint64_t cache_addr);
-		void CacheReadFinish(uint64_t addr, Pending p);
+		void CacheRead(uint64_t orig_addr, uint64_t back_addr, uint64_t cache_addr, Transaction &trans, bool tag_lookup);
+		void CacheReadFinish(uint64_t addr, Pending p, bool line_read);
 
 		void CacheWrite(uint64_t orig_addr, uint64_t back_addr, uint64_t cache_addr);
 		void CacheWriteFinish(Pending p);
@@ -196,6 +204,12 @@ namespace HybridSim
 
 		// Logger is used to store HybridSim-specific logging events.
 		Logger log;
+
+		// Decoder is used to decode addresses for the combo tag associativity implementation
+		AddressDecoder decoder;
+
+		// Tag Buffer is used to store tags that have been fetched from the main memory for a short time
+		TagBuffer tbuff;
 
 		// Prefetch data stores the prefetch sets from the prefetch file.
 		// This is stored as a map of lists. It could be stored more compactly as an array of pointers to pointers,

@@ -57,8 +57,6 @@ uint64_t REUSE_MAX = 500000;
 // these values are also specified in the ini file of the nvdimm but have a different name
 uint64_t PAGE_SIZE = 4096; // in bytes, so divide this by 64 to get the number of DDR3 transfers per page
 
-
-
 uint64_t SET_SIZE = 64; // associativity of cache
 
 uint64_t BURST_SIZE = 64; // number of bytes in a single transaction, this means with PAGE_SIZE=1024, 16 transactions are needed
@@ -67,6 +65,10 @@ uint64_t BACK_BURST_SIZE = 4096; // number of bytes in a single flash transactio
 // Number of pages total and number of pages in the cache
 uint64_t TOTAL_PAGES = 2097152/4; // 2 GB
 uint64_t CACHE_PAGES = 1048576/4; // 1 GB
+
+// PaulMod: Associativity version
+string ASSOC_VERSION;
+AssocVersion assocVersion;
 
 // PaulMod: Replacement Policy
 string REPLACEMENT_POLICY;
@@ -184,6 +186,33 @@ string NVDIMM_SAVE_FILE = "none";
 				convert_uint64_t(TOTAL_PAGES, value, key);
 			else if (key.compare("CACHE_PAGES") == 0)
 				convert_uint64_t(CACHE_PAGES, value, key);
+			else if (key.compare("ASSOC_VERSION") == 0)
+			{
+				if(value.compare("TAG_TLB") == 0)
+				{
+					assocImplementation = tag_tlb;
+				}
+				else if(value.compare("DIRECT") == 0)
+				{
+					assocImplementation = direct;
+				}
+				else if(value.compare("LOH") == 0)
+				{
+					assocImplementation = loh;
+				}
+				else if(value.compare("COMBO_TAG") == 0)
+				{
+					assocImplementation = combo_tag;
+				}
+				else if(value.compare("CHANNEL") == 0)
+				{
+					assocImplementation = channel;
+				}
+				else
+				{
+					assocImplementation = tag_tlb;
+				}
+			}
 			else if (key.compare("REPLACEMENT_POLICY") == 0)
 			{
 			        if(value.compare("LRU") == 0)

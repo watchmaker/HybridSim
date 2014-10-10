@@ -1,9 +1,9 @@
 /*********************************************************************************
 * Copyright (c) 2010-2011, 
-* Jim Stevens, Paul Tschirhart, Ishwar Singh Bhati, Mu-Tien Chang, Peter Enns, 
+* Paul Tschirhart, Jim Stevens, Ishwar Singh Bhati, Mu-Tien Chang, Peter Enns, 
 * Elliott Cooper-Balis, Paul Rosenfeld, Bruce Jacob
 * University of Maryland
-* Contact: jims [at] cs [dot] umd [dot] edu
+* Contact: pkt3c [at] umd [dot] edu
 * All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
@@ -28,45 +28,52 @@
 * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *********************************************************************************/
 
-#ifndef HYBRIDSYSTEM_UTIL_H
-#define HYBRIDSYSTEM_UTIL_H
+#ifndef HYBRIDSIM_ADDRESSDECODE_H
+#define HYBRIDSIM_ADDRESSDECODE_H
 
-#include <string>
 #include <iostream>
-#include <fstream>
-#include <list>
-#include <sstream>
-#include <stdint.h>
-#include <cstdlib>
-#include <time.h>
-#include <random>
+#include <string>
+#include <stdlib.h>
 
 using namespace std;
 
-// Utility Library for HybridSim
-
-void convert_uint64_t(uint64_t &var, string value, string infostring = "");
-string strip(string input, string chars = " \t\f\v\n\r");
-list<string> split(string input, string chars = " \t\f\v\n\r", size_t maxsplit=string::npos);
-
-void confirm_directory_exists(string path);
-
-uint64_t rand64_r(unsigned int *seed);
-
-// Utilities borrowed from DRAMSim2
-unsigned inline hybridsim_log2(unsigned value)
+namespace HybridSim
 {
-	unsigned logbase2 = 0;
-	unsigned orig = value;
-	value>>=1;
-	while (value>0)
+	class AddressSet
 	{
-		value >>= 1;
-		logbase2++;
-	}
-	if (1U<<logbase2 < orig)
-		logbase2++;
-	return logbase2;
+		public:
+			uint64_t channel;
+			uint64_t rank;
+			uint64_t bank;
+			uint64_t row;
+			uint64_t column;
+
+			cache_line() : channel(0), rank(0), bank(0), row(0), column(0) {}
+       			string str() 
+			{ 
+				stringstream out; 
+				out << "channel=" << channel << " rank=" << rank << " bank=" << bank << " row=" << row << " column=" << column; 
+				return out.str(); 
+			}	
+	};
+
+	class AddressDecode
+	{
+		public:
+			AddressDecode(NVDSim::NVDIMM *llcache);
+
+			// the actual decode stuff
+			AddressSet getDecode(uint64_t addr);
+
+		private:
+			// values used for decoding
+			uint64_t channelBitWidth;
+			uint64_t rankBitWidth;
+			uint64_t bankBitWidth;
+			uint64_t rowBitWidth;
+			uint64_t colBitWidth;
+			uint64_t colOffset;
+	};
 }
 
 #endif

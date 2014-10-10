@@ -63,6 +63,10 @@
 // Outputs the full trace of accesses received by HybridSim. Goes to full_trace.log.
 #define DEBUG_FULL_TRACE 0
 
+// Outputs the lists of the set addresses and which cache aligned address is chosen
+// Need this for different associativity implementations
+#define DEBUG_SET_ADDRESSES 0
+
 
 // Map the first CACHE_PAGES of the NVDIMM address space.
 // This is the initial state of the hybrid memory on boot.
@@ -184,6 +188,40 @@ extern uint64_t BACK_BURST_SIZE; // number of bytes in a single flash transactio
 extern uint64_t TOTAL_PAGES; // 2 GB
 extern uint64_t CACHE_PAGES; // 1 GB
 
+// PaulMod: Associativity version
+enum AssocVersion
+{
+	tag_tlb,
+	direct,
+	loh,
+	combo_tag,
+	channel
+};
+extern string ASSOC_VERSION;
+extern AssocVersion assocVersion;
+extern uint64_t ENABLE_TAG_WRITE; // simulates updating the tag store on a write
+
+// PaulMod: Tag Buffer Stuff
+extern uint64_t NUM_TAG_WAYS;
+extern uint64_t NUM_TAG_SETS;
+extern uint64_t SETS_PER_LINE;
+extern uint64_t TRANS_PER_TAG_GROUP;
+#define EXTRA_SETS_FOR_ZERO_GROUP (SETS_PER_LINE % SETS_PER_TAG_GROUP)
+// number of accesses at the front of a row that are reserved for tags
+#define TAG_OFFSET ((SETS_PER_LINE - EXTRA_SETS_FOR_ZERO_GROUP) / SETS_PER_TAG_GROUP) 
+// number of accesses that are wasted  because we can't always fill a row evenly with tags and data
+#define WASTE_OFFSET (COL_PER_ROW - ((SETS_PER_LINE / SETS_PER_TAG_GROUP) + (SETS_PER_LINE * SET_SIZE)))
+
+extern uint64_t DATA_OFFSET; // accounts for the tags at the front of each row in the memory
+enum TagReplacement
+{
+	lru,
+	nru,
+	fifo
+};
+extern string TAG_REPLACEMENT;
+extern TagReplacement tagReplacement; 
+
 // PaulMod: Replacement Policy Stuff
 enum ReplacementPolicy
 {
@@ -262,13 +300,35 @@ class cache_line
 	}
 };
 
+// Declare the buffer_line class, this is used to store the metadata for each set that is present in the tag buffer
+// this is used when the system is set up to use buffers to temporarily store tags
+class buffer_line
+{
+ public:
+	uint64_t set_index; // the set that this tag_line contains the tags for
+	bool valid;
+	bool used; // this used for NRU replacement
+	bool prefetched; // tracks whether this tag was part of an explicitly prefetched tag trans
+	uint64_t ts;
+
+ 	buffer_line() : valid(false), dirty(false), locked(false), used(false), prefetched(false), ts(0) {}
+	string str() 
+	{ 
+		stringstream out; 
+		out << " valid=" << valid << " dirty=" << dirty << " used=" << used << " prefetched=" << prefetched << " ts=" << ts;
+		return out.str(); 
+	}
+};
+
 enum PendingOperation
 {
 	VICTIM_READ, // Read victim line from DRAM
 	VICTIM_WRITE, // Write victim line to Flash
 	LINE_READ, // Read new line from Flash
-	CACHE_READ, // Perform a DRAM read and return the final result.
-	CACHE_WRITE // Perform a DRAM read and return the final result.
+	CACHE_READ, // Perform a DRAM read to get data and return the final result.
+	CACHE_WRITE, // Perform a DRAM read to put data and return the final result.
+	TAG_READ, // Perform a DRAM read to get Tags instead of data
+	TAG_WRITE // Performa a DRAM write to update the Tags block for data
 };
 
 // Entries in the pending table.
@@ -279,6 +339,8 @@ class Pending
 	uint64_t orig_addr;
 	uint64_t back_addr;
 	uint64_t cache_addr;
+	uint64_t tag_index;
+	uint64_t tag_addr;
 	uint64_t victim_tag;
 	bool victim_valid;
 	bool callback_sent;
