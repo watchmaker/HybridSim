@@ -37,7 +37,7 @@ namespace HybridSim {
 	TagBuffer::TagBuffer()
 	{
 		//initializing the parallel set structures for the tag cache
-		tag_buffer = vector<unodered_map<buffer_line> >(NUM_TAG_SETS, unordered_map<buffer_line>());
+		//tag_buffer = unordered_map<uint64_t, list<tag_line> >(NUM_TAG_SETS, list<tag_line>());
 	}
 
 	// right now this just steps to keep the clock cycle count accurate for 
@@ -49,25 +49,25 @@ namespace HybridSim {
 	}
 
 	// tags contains the set number corresponding to the group of tags that is being buffered
-	void TagBuffer::addTags(uint64_t* tags, bool prefetched)
+	void TagBuffer::addTags(vector<uint64_t> tags, bool prefetched)
 	{
 		// NOTE: to do fully associative, set the number of sets to 1 and the number of ways to whatever size you want
 	
 		// cycle through the different sets that this is adding tags for
-		for(uint64_t tags_index = 0; tags_index < SETS_PER_TRANS; tags_index++)
+		for(uint64_t tags_index = 0; tags_index < tags.size(); tags_index++)
 		{
 			uint64_t set_index = tags[tags_index]; // get the set number
 			uint64_t tag_buffer_set = set_index % NUM_TAG_SETS;
 			
 			// if we're out of room, we have to overwrite something
-			if(tag_buffer[tag_buffer_set].size() > NUM_TAG_WAYS)
+			if(tag_buffer[tag_buffer_set].size() >= NUM_TAG_WAYS)
 			{
 				// all of these replacement algorithms are virtually identical to the general replacement policy algorithms that I already
 				// have in place for general cache replacement
 				// TODO: move these functions and the other replacement functions to some common object
 				std::list<tag_line>::iterator victim = tag_buffer[tag_buffer_set].end();
 				// LRU replacement based on time stamps
-				if(tagReplacement == lru)
+				if(tagReplacement == tag_lru)
 				{
 					bool search_init = true;
 					uint64_t oldest_ts = 0;					
@@ -88,19 +88,19 @@ namespace HybridSim {
 					}
 					
 					// now replace the victim with the new stuff
-					victim.set_index = tags[tags_index];
-					victim.valid = true;
-					victim.used = false;
-					victim.prefetched = prefetched;
-					victim.ts = currentClockCycle;					
+					(*victim).set_index = tags[tags_index];
+					(*victim).valid = true;
+					(*victim).used = false;
+					(*victim).prefetched = prefetched;
+					(*victim).ts = currentClockCycle;					
 					
 				}
-				else if(tagReplacement == nru)
+				else if(tagReplacement == tag_nru)
 				{
 					// search the tag buffer for the oldest 
 					// no need to write back though, they are just tags
 					bool done = false;
-					for(std::vector<tag_line>::iterator it = tag_buffer[tag_buffer_set].begin(); it != tag_buffer[tag_buffer_set].end(); it++)
+					for(std::list<tag_line>::iterator it = tag_buffer[tag_buffer_set].begin(); it != tag_buffer[tag_buffer_set].end(); it++)
 					{
 						//first is the key which is the tag address
 						//second is the actual tag line structure with the time stamp
@@ -116,17 +116,17 @@ namespace HybridSim {
 					if(done == true)
 					{
 						// now replace the victim with the new stuff
-						victim.set_index = tags[tags_index];
-						victim.valid = true;
-						victim.used = false;
-						victim.prefetched = prefetched;
-						victim.ts = currentClockCycle;
+						(*victim).set_index = tags[tags_index];
+						(*victim).valid = true;
+						(*victim).used = false;
+						(*victim).prefetched = prefetched;
+						(*victim).ts = currentClockCycle;
 					}
-					// if nothing has been used, just pop from the front
+					// if nothing has been used, just pop from a random location
 					else
 					{
 						// making use of a lot of standard library algorithms here to avoid random selection bias
-						std::uniform_int_distribution<uint64_t> set_list_dist(0, set_address_list.size()-1);
+						std::uniform_int_distribution<uint64_t> set_list_dist(0, tag_buffer[tag_buffer_set].size()-1);
 						std::default_random_engine rand_gen;
 						
 						// might have to do this multiple times to fine a line that is not one that we just replaced
@@ -134,24 +134,24 @@ namespace HybridSim {
 						while(!done)
 						{
 							advance(victim, set_list_dist(rand_gen));
-							if(victim.ts != currentClockCycle)
+							if((*victim).ts != currentClockCycle)
 								done = true;
 						}
 
 						// now replace the victim with the new stuff
-						victim.set_index = tags[tags_index];
-						victim.valid = true;
-						victim.used = false;
-						victim.prefetched = prefetched;
-						victim.ts = currentClockCycle;
+						(*victim).set_index = tags[tags_index];
+						(*victim).valid = true;
+						(*victim).used = false;
+						(*victim).prefetched = prefetched;
+						(*victim).ts = currentClockCycle;
 					}
 				}
-				else if(tagReplacement == fifo)
+				else if(tagReplacement == tag_fifo)
 				{
 					tag_buffer[tag_buffer_set].pop_front();
 
 					// add a new thing to the buffer
-					buffer_line new_line = buffer_line();
+					tag_line new_line = tag_line();
 					new_line.set_index = set_index;
 					new_line.valid = true;
 					new_line.used = false;
@@ -165,7 +165,7 @@ namespace HybridSim {
 				{
 					// making use of a lot of standard library algorithms here to avoid random selection bias
 					std::list<tag_line>::iterator victim = tag_buffer[tag_buffer_set].end();
-					std::uniform_int_distribution<uint64_t> set_list_dist(0, set_address_list.size()-1);
+					std::uniform_int_distribution<uint64_t> set_list_dist(0, tag_buffer[tag_buffer_set].size()-1);
 					std::default_random_engine rand_gen;
 					
 					// might have to do this multiple times to fine a line that is not one that we just replaced
@@ -173,16 +173,16 @@ namespace HybridSim {
 					while(!done)
 					{
 						advance(victim, set_list_dist(rand_gen));
-						if(victim.ts != currentClockCycle)
+						if((*victim).ts != currentClockCycle)
 							done = true;
 					}
 					
 					// now replace the victim with the new stuff
-					victim.set_index = tags[tags_index];
-					victim.valid = true;
-					victim.used = false;
-					victim.prefetched = prefetched;
-					victim.ts = currentClockCycle;
+					(*victim).set_index = tags[tags_index];
+					(*victim).valid = true;
+					(*victim).used = false;
+					(*victim).prefetched = prefetched;
+					(*victim).ts = currentClockCycle;
 				}
 			}
 			// still filling the buffer, so we need to add new entries
@@ -192,7 +192,7 @@ namespace HybridSim {
 				assert(tag_buffer[tag_buffer_set].size() < NUM_TAG_WAYS);
 				
 				// add a new thing to the buffer
-				buffer_line new_line = buffer_line();
+				tag_line new_line = tag_line();
 				new_line.set_index = set_index;
 				new_line.valid = true;
 				new_line.used = false;
@@ -214,12 +214,13 @@ namespace HybridSim {
 		}
 			
 		// search the buffer for this set's tags
-		for(std::vector<buffer_line>::iterator it = tag_buffer[tag_buffer_set].begin(); it != tag_buffer[tag_buffer_set].end(); it++)
+		for(std::list<tag_line>::iterator it = tag_buffer[tag_buffer_set].begin(); it != tag_buffer[tag_buffer_set].end(); it++)
 		{
-			if(it.set_index == set_index)
+			if((*it).set_index == set_index)
 			{	
 				// TODO: Not sure if this is going to work, need to check it
-				it.used = true;
+				(*it).used = true;
+				cout << "HAD TAGS !!!! AWWWW YISSSSS \n";
 				return true;
 			}
 		}

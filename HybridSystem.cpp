@@ -92,6 +92,8 @@ namespace HybridSim {
 		DRAMSim::TransactionCompleteCB *write_cb = new dramsim_callback_t(this, &HybridSystem::BackWriteCallback);
 		back->RegisterCallbacks(read_cb, write_cb, NULL);
 
+		decoder = AddressDecode();
+
 		// Need to check the queue when we start.
 		check_queue = true;
 
@@ -364,6 +366,7 @@ namespace HybridSim {
 				isWrite = true;
 			else
 				isWrite = false;
+			cout << "added transaction to " << tmp.address << "\n";
 			not_full = llcache->addTransaction(isWrite, tmp.address);
 			if (not_full)
 			{
@@ -386,7 +389,7 @@ namespace HybridSim {
 			else
 				isWrite = false;
 			not_full = back->addTransaction(isWrite, tmp.address);
-
+			cout << "added back transaction to " << tmp.address << "\n";
 			if (not_full)
 			{
 				back_queue.pop_front();
@@ -541,11 +544,19 @@ namespace HybridSim {
 	uint64_t HybridSystem::getComboDataAddr(uint64_t set_index, uint64_t i)
 	{
 		// accounts for how many accesses each set takes up
-		uint64_t set_piece = (set_index / llcache->NUM_CHANNELS) * SET_SIZE;
+		uint64_t set_piece = (set_index / NVDSim::NUM_PACKAGES) * SET_SIZE;
+		cout << "set index " << set_index << "\n";
+		cout << "set piece " << set_piece << "\n";
 		// accounts for the accesses that are lost because they are either used for tags or can't be used
-		uint64_t waste_piece = (((set_index / llcache->NUM_CHANNELS) / SETS_PER_LINE) + 1) * (TAG_OFFSET + WASTE_OFFSET);
+		uint64_t waste_piece = (((set_index / NVDSim::NUM_PACKAGES) / SETS_PER_LINE) + 1) * (TAG_OFFSET + WASTE_OFFSET);
+		cout << "waste piece " << waste_piece << "\n";
+		cout << "Tag offset " << TAG_OFFSET << "\n";
+		cout << "Waste offset " << WASTE_OFFSET << "\n";
 		// accounts for the number of accesses to add in order to space adjacent sets out across different channels
-		uint64_t channel_piece = (set_index % llcache->NUM_CHANNELS) * llcache->BLOCKS_PER_CHANNEL;
+		uint64_t blocks_per_channel = NVDSim::DIES_PER_PACKAGE * NVDSim::PLANES_PER_DIE * NVDSim::VIRTUAL_BLOCKS_PER_PLANE * NVDSim::PAGES_PER_BLOCK;
+		cout << "blocks per channel " << blocks_per_channel << "\n";
+		uint64_t channel_piece = (set_index % NVDSim::NUM_PACKAGES) * blocks_per_channel;
+		cout << "channel piece " << channel_piece << "\n";
 		// add it all up to get your address
 		return (set_piece + waste_piece + channel_piece + i) * PAGE_SIZE;
 	}
@@ -587,7 +598,7 @@ namespace HybridSim {
 			}
 			else if(assocVersion == combo_tag)
 			{
-				next_address = getComboAddr(set_index, i);
+				next_address = getComboDataAddr(set_index, i);
 			}
 			else
 			{
@@ -819,7 +830,7 @@ namespace HybridSim {
 	{
 		AddressSet address_stuff = decoder.getDecode(data_address);
 				
-		uint64_t set_index_mod = (set_index / NUM_CHANNELS) % SETS_PER_LINE;
+		uint64_t set_index_mod = (set_index / NVDSim::NUM_PACKAGES) % SETS_PER_LINE;
 		uint64_t set_index_pos = 0;
 		if(set_index_mod < (SETS_PER_TAG_GROUP + EXTRA_SETS_FOR_ZERO_GROUP))
 		{
@@ -830,9 +841,13 @@ namespace HybridSim {
 			set_index_pos = (set_index_mod-EXTRA_SETS_FOR_ZERO_GROUP) / (SETS_PER_TAG_GROUP);
 		}
 		
-		return ((llcache->COL_PER_ROW * (address_stuff.row + llcache->ROWS_PER_BANK * 
-								   (address_stuff.bank + llcache->BANKS_PER_RANK * 
-								    (address_stuff.rank + (llcache->RANKS_PER_CHAN * 
+		cout << "address stuff " << address_stuff.str() << "\n";
+		cout << "set index mod " << set_index_mod << "\n";
+		cout << "set index pos " << set_index_pos << "\n";
+
+		return ((NVDSim::PAGES_PER_BLOCK * (address_stuff.row + NVDSim::VIRTUAL_BLOCKS_PER_PLANE * 
+								   (address_stuff.bank + NVDSim::PLANES_PER_DIE * 
+								    (address_stuff.rank + (NVDSim::DIES_PER_PACKAGE * 
 											   address_stuff.channel))))) + 
 					  set_index_pos) * PAGE_SIZE;
 	}
@@ -865,7 +880,7 @@ namespace HybridSim {
 
 		if(assocVersion == tag_tlb)				
 		{
-			CheckHitMiss(trans);
+			HitCheck(trans);
 		}
 		// we're simulating storing the tags in dram, so we have to access dram first and then see if the tag is what we're looking for
 		// we have an associative cache and we're distributing the ways across channels
@@ -893,11 +908,11 @@ namespace HybridSim {
 			CacheRead(trans.address, addr, cache_address, trans, true);
 		}
 		// we're implementing the loh cache so we're issuing a cache lookup transaction to the first way in the set
-		else if(assocImplementation == loh)
+		else if(assocVersion == loh)
 		{
 		}
 		// we're doing the combo tag thing, so we need to know what is in the tag cache to see if we need to do a lookup
-		else if(assocImplementation == combo_tag)
+		else if(assocVersion == combo_tag)
 		{
 			// Compute the set number and tag
 			uint64_t set_index = SET_INDEX(addr);
@@ -907,7 +922,7 @@ namespace HybridSim {
 			{
 				// if we do have the tags then there's no need to issue a tag lookup to the cache
 				// so we just go directly to the check tags phase
-				CheckHitMiss(trans);
+				HitCheck(trans);
 			}
 			else
 			{
@@ -925,13 +940,11 @@ namespace HybridSim {
 				// we use this to get the channel, rank, bank and row of the tag that we want
 				uint64_t data_address = getComboDataAddr(set_index, 0);
 
+				cout << "data address " << data_address << "\n";
+
 				uint64_t cache_address = getComboTagAddr(set_index, data_address);
 
-				if(DEBUG_CACHE_ADDRESSES)
-				{
-					debug_cache_addresses << "NUM_SETS is " << NUM_SETS << " set_index is " << set_index << " PAGE_SIZE is " << PAGE_SIZE << "\n";
-					debug_cache_addresses << "way 0  address is: " << cache_address << " (hex: " << hex << cache_address << dec << " )\n";
-				}
+				cout << "cache tag address " << cache_address << "\n";
 				
 				contention_cache_line_lock(cache_address);
 				CacheRead(trans.address, addr, cache_address, trans, true);
@@ -1029,7 +1042,7 @@ namespace HybridSim {
 			// if there was just one read per page anyway, then we've already read that and we're done
 			else
 			{
-				AlreadyVictimRead(p);
+				AlreadyReadVictim(p);
 			}
 #endif
 		}	
@@ -1219,7 +1232,7 @@ namespace HybridSim {
 		LineWrite(p);
 
 		// if we're storing tags along with data, then we need to write the new tag data into the cache as well
-		if(assocVersion != tag_tlb && ENABLE_TAG_WRITE)
+		if(assocVersion != tag_tlb && assocVersion != direct)
 		{
 			Pending tp;
 			tp.op = TAG_WRITE;
@@ -1227,7 +1240,8 @@ namespace HybridSim {
 			tp.back_addr = p.back_addr;
 			
 			// calculate the tag address
-			uint64_t tag_address = getComboTagAddr(set_index, p.cache_address);
+			uint64_t set_index = SET_INDEX(p.back_addr);
+			uint64_t tag_address = getComboTagAddr(set_index, p.cache_addr);
 
 			tp.cache_addr = tag_address;
 			tp.victim_tag = p.victim_tag;
@@ -1244,7 +1258,7 @@ namespace HybridSim {
 		// operations to this set to start.
 		// Note: Only write operations are pending at this point, which will not interfere with future operations.
 		if (p.type == DATA_READ)
-			CacheReadFinish(p.cache_addr, p);
+			CacheReadFinish(p.cache_addr, p, true);
 		else if(p.type == DATA_WRITE)
 			CacheWriteFinish(p);
 		else if(p.type == PREFETCH)
@@ -1333,13 +1347,12 @@ namespace HybridSim {
 		if(tag_lookup)
 		{
 			p.op = TAG_READ;
-			p.tag_addr = cache_addr;
 		}
 		else
 		{
-			p.op = CACHE_READ;
-			p.cache_addr = cache_addr;
+			p.op = CACHE_READ;			
 		}
+		p.cache_addr = cache_addr;
 		p.orig_addr = orig_addr;
 		p.back_addr = back_addr;		
 		p.victim_tag = 0;
@@ -1366,23 +1379,42 @@ namespace HybridSim {
 			Transaction t = Transaction(p.type, p.orig_addr, NULL);
             // Do not erase the page from the pending set yet because we're still working with it
 			contention_cache_line_unlock(p.cache_addr);
-			CheckHitMiss(t);
+			HitCheck(t);
 		}
 		else if(assocVersion == combo_tag && !line_read && !p.callback_sent && p.op == TAG_READ)
 		{
 			// update the tag buffer to now hold the stuff we just got
-			// figure out what data address tags we just got
-			for (uint64_t i=0; i<SET_SIZE; i++)
+			// first get the tag group that this data belongs too
+			// to do this we first need to know what set we have
+			uint64_t set_index = SET_INDEX(p.back_addr);
+			// next we figure out which tag group it is
+			uint64_t set_index_mod = (set_index / NVDSim::NUM_PACKAGES) % SETS_PER_LINE;
+			uint64_t set_index_start = 0;
+			if(set_index_mod < (SETS_PER_TAG_GROUP + EXTRA_SETS_FOR_ZERO_GROUP))
 			{
-				uint64_t next_address = 0;
-				next_address = getComboAddr(set_index, i);
+				vector<uint64_t> tags = vector<uint64_t> (SETS_PER_TAG_GROUP + EXTRA_SETS_FOR_ZERO_GROUP, 0);
+				set_index_start = set_index - (set_index_mod * NVDSim::NUM_PACKAGES);
+				for(uint64_t i=0; i<(SETS_PER_TAG_GROUP + EXTRA_SETS_FOR_ZERO_GROUP); i++)
+				{
+					tags[i] = set_index_start+(i*NVDSim::NUM_PACKAGES);
+				}
+				tbuff.addTags(tags, false);					
 			}
-			tbuff.addTags(
+			else
+			{
+				vector<uint64_t> tags = vector<uint64_t> (SETS_PER_TAG_GROUP, 0);
+				set_index_start = set_index - (((set_index_mod-EXTRA_SETS_FOR_ZERO_GROUP) % SETS_PER_TAG_GROUP)  * NVDSim::NUM_PACKAGES);
+				for(uint64_t i=0; i<SETS_PER_TAG_GROUP; i++)
+				{
+					tags[i] = set_index_start+(i*NVDSim::NUM_PACKAGES);
+				}
+				tbuff.addTags(tags, false);						
+			}
 			
 			Transaction t = Transaction(p.type, p.orig_addr, NULL);
             // Do not erase the page from the pending set yet because we're still working with it
 			contention_cache_line_unlock(p.cache_addr);
-			CheckHitMiss(t);
+			HitCheck(t);
 		}
 		else if(assocVersion == channel && !line_read && !p.callback_sent)
 		{
@@ -1403,7 +1435,7 @@ namespace HybridSim {
 			Transaction t = Transaction(p.type, p.orig_addr, NULL);
 			// However, do not totally unlock the page from the pending set yet because we're still working with it
 			contention_cache_line_unlock(p.cache_addr);
-			CheckHitMiss(t);
+			HitCheck(t);
 		}
 		else
 		{			
@@ -1952,7 +1984,8 @@ namespace HybridSim {
 			pending_addr = addr;
 		}
 
-
+		cout << "got callback for pending addr " << pending_addr << "\n";
+		cout << "pending addr count is " << cache_pending.count(pending_addr) << "\n";
 		if (cache_pending.count(pending_addr) != 0)
 		{
 			// Get the pending object for this transaction.
@@ -1975,7 +2008,7 @@ namespace HybridSim {
 			else if (p.op == TAG_READ)
 			{
 				cache_pending_set.erase(addr);
-				CacheReadFinish(addr, p);
+				CacheReadFinish(addr, p, 0);
 			}
 			else
 			{

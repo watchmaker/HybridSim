@@ -49,7 +49,7 @@
 // Debug flags.
 
 // Lots of output during cache operations. Goes to stdout.
-#define DEBUG_CACHE 0
+#define DEBUG_CACHE 1
 
 // Lots of output for debugging logging operations. Goes to debug.log.
 #define DEBUG_LOGGER 0		
@@ -72,7 +72,7 @@
 // This is the initial state of the hybrid memory on boot.
 // This will be overridden if ENABLE_RESTORE is on in the ini file, so leaving this
 // on all of the time is harmless. Valid options are 0 or 1.
-#define PREFILL_CACHE 1
+#define PREFILL_CACHE 0
 
 // If PREFILL_CACHE is on, specify whether the initialized pages should be
 // clean or dirty. Valid options are 0 or 1.
@@ -205,19 +205,18 @@ extern uint64_t ENABLE_TAG_WRITE; // simulates updating the tag store on a write
 extern uint64_t NUM_TAG_WAYS;
 extern uint64_t NUM_TAG_SETS;
 extern uint64_t SETS_PER_LINE;
-extern uint64_t TRANS_PER_TAG_GROUP;
+extern uint64_t SETS_PER_TAG_GROUP;
 #define EXTRA_SETS_FOR_ZERO_GROUP (SETS_PER_LINE % SETS_PER_TAG_GROUP)
 // number of accesses at the front of a row that are reserved for tags
 #define TAG_OFFSET ((SETS_PER_LINE - EXTRA_SETS_FOR_ZERO_GROUP) / SETS_PER_TAG_GROUP) 
 // number of accesses that are wasted  because we can't always fill a row evenly with tags and data
-#define WASTE_OFFSET (COL_PER_ROW - ((SETS_PER_LINE / SETS_PER_TAG_GROUP) + (SETS_PER_LINE * SET_SIZE)))
+#define WASTE_OFFSET (NVDSim::PAGES_PER_BLOCK - ((SETS_PER_LINE / SETS_PER_TAG_GROUP) + (SETS_PER_LINE * SET_SIZE)))
 
-extern uint64_t DATA_OFFSET; // accounts for the tags at the front of each row in the memory
 enum TagReplacement
 {
-	lru,
-	nru,
-	fifo
+	tag_lru,
+	tag_nru,
+	tag_fifo
 };
 extern string TAG_REPLACEMENT;
 extern TagReplacement tagReplacement; 
@@ -300,9 +299,9 @@ class cache_line
 	}
 };
 
-// Declare the buffer_line class, this is used to store the metadata for each set that is present in the tag buffer
+// Declare the tag_line class, this is used to store the metadata for each set that is present in the tag buffer
 // this is used when the system is set up to use buffers to temporarily store tags
-class buffer_line
+class tag_line
 {
  public:
 	uint64_t set_index; // the set that this tag_line contains the tags for
@@ -311,11 +310,11 @@ class buffer_line
 	bool prefetched; // tracks whether this tag was part of an explicitly prefetched tag trans
 	uint64_t ts;
 
- 	buffer_line() : valid(false), dirty(false), locked(false), used(false), prefetched(false), ts(0) {}
+ 	tag_line() : set_index(0), valid(false), used(false), prefetched(false), ts(0) {}
 	string str() 
 	{ 
 		stringstream out; 
-		out << " valid=" << valid << " dirty=" << dirty << " used=" << used << " prefetched=" << prefetched << " ts=" << ts;
+		out << " set index=" << set_index << " valid=" << valid << " used= " << used << " prefetched=" << prefetched << " ts=" << ts;
 		return out.str(); 
 	}
 };
@@ -339,8 +338,6 @@ class Pending
 	uint64_t orig_addr;
 	uint64_t back_addr;
 	uint64_t cache_addr;
-	uint64_t tag_index;
-	uint64_t tag_addr;
 	uint64_t victim_tag;
 	bool victim_valid;
 	bool callback_sent;

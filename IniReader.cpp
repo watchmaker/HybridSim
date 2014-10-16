@@ -70,6 +70,14 @@ uint64_t CACHE_PAGES = 1048576/4; // 1 GB
 string ASSOC_VERSION;
 AssocVersion assocVersion;
 
+// PaulMod: Tag Buffer Stuff
+uint64_t NUM_TAG_WAYS;
+uint64_t NUM_TAG_SETS;
+uint64_t SETS_PER_LINE;
+uint64_t SETS_PER_TAG_GROUP;
+string TAG_REPLACEMENT;
+TagReplacement tagReplacement;
+
 // PaulMod: Replacement Policy
 string REPLACEMENT_POLICY;
 ReplacementPolicy replacementPolicy;
@@ -190,27 +198,54 @@ string NVDIMM_SAVE_FILE = "none";
 			{
 				if(value.compare("TAG_TLB") == 0)
 				{
-					assocImplementation = tag_tlb;
+					assocVersion = tag_tlb;
 				}
 				else if(value.compare("DIRECT") == 0)
 				{
-					assocImplementation = direct;
+					assocVersion = direct;
 				}
 				else if(value.compare("LOH") == 0)
 				{
-					assocImplementation = loh;
+					assocVersion = loh;
 				}
 				else if(value.compare("COMBO_TAG") == 0)
 				{
-					assocImplementation = combo_tag;
+					assocVersion = combo_tag;
 				}
 				else if(value.compare("CHANNEL") == 0)
 				{
-					assocImplementation = channel;
+					assocVersion = channel;
 				}
 				else
 				{
-					assocImplementation = tag_tlb;
+					assocVersion = tag_tlb;
+				}
+			}
+			else if (key.compare("NUM_TAG_WAYS") == 0)
+				convert_uint64_t(NUM_TAG_WAYS, value, key);
+			else if (key.compare("NUM_TAG_SETS") == 0)
+				convert_uint64_t(NUM_TAG_SETS, value, key);
+			else if (key.compare("SETS_PER_LINE") == 0)
+				convert_uint64_t(SETS_PER_LINE, value, key);
+			else if (key.compare("SETS_PER_TAG_GROUP") == 0)
+				convert_uint64_t(SETS_PER_TAG_GROUP, value, key);
+			else if (key.compare("TAG_REPLACEMENT") == 0)
+			{
+			        if(value.compare("LRU") == 0)
+			        {
+					tagReplacement = tag_lru;
+			        }
+				else if(value.compare("NRU") == 0)
+				{
+					tagReplacement = tag_nru;
+				}
+				else if(value.compare("FIFO") == 0)
+				{
+					tagReplacement = tag_fifo;
+				}
+				else
+				{
+					tagReplacement = tag_lru;
 				}
 			}
 			else if (key.compare("REPLACEMENT_POLICY") == 0)

@@ -46,14 +46,13 @@ namespace HybridSim
 		// just making it all public for now
 	public:
 		TagBuffer();
-		~TagBuffer();
 		
 		// just to keep the cycle count valid
 		void update();
 
-		void addTags(uint64_t* tags, uint64_t tag_count);
+		void addTags(vector<uint64_t> tags, bool prefetched);
 
-		bool haveTag(uint64_t set_index);
+		bool haveTags(uint64_t set_index);
 		
 		// making this a vector of sets
 		// a tag line represents the storage of an entire DRAM buffer set's tags

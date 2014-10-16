@@ -37,24 +37,29 @@
 using namespace HybridSim;
 using namespace std;
 
-AddressDecode::AddressDecode(NVDSim::NVDIMM *llcache)
+AddressDecode::AddressDecode()
 {
-	channelBitWidth = hybridsim_log2(llcache->NUM_PACKAGES);
-	rankBitWidth = hybridsim_log2(llcache->DIES_PER_PACKAGE);
-	bankBitWidth = hybridsim_log2(llcache->PLANES_PER_DIE);
-	rowBitWidth = hybridsim_log2(llcache->BLOCKS_PER_PLANE);
-	colBitWidth = hybridsim_log2(llcache->PAGES_PER_BLOCK);
-	// make sure HybridSim and NVDIMM agree on the page size we're using
-	assert(llcache->NV_PAGE_SIZE == PAGE_SIZE);
-	colOffset = hybridsim_log2(llcache->NV_PAGE_SIZE);
+	channelBitWidth = hybridsim_log2(NVDSim::NUM_PACKAGES);
+	rankBitWidth = hybridsim_log2(NVDSim::DIES_PER_PACKAGE);
+	bankBitWidth = hybridsim_log2(NVDSim::PLANES_PER_DIE);
+	rowBitWidth = hybridsim_log2(NVDSim::VIRTUAL_BLOCKS_PER_PLANE);
+	colBitWidth = hybridsim_log2(NVDSim::PAGES_PER_BLOCK);
+	colOffset = hybridsim_log2(NVDSim::NV_PAGE_SIZE);
+
+	cout << "channel bits " << channelBitWidth << "\n";
+	cout << "rank bits " << rankBitWidth << "\n";
+	cout << "bank bits " << bankBitWidth << "\n";
+	cout << "row bits " << rowBitWidth << "\n";
+	cout << "col bits " << colBitWidth << "\n";
+	cout << "col offset " << colOffset << "\n";
 }
 
 AddressSet AddressDecode::getDecode(uint64_t addr)
 {
-	uint64_t physicalAddress;
+	uint64_t physicalAddress, tempA, tempB;
 	AddressSet decoded_addr;
 
-	physicalAddress = next_address >> colOffset;
+	physicalAddress = addr >> colOffset;
 				
 	tempA = physicalAddress;
 	physicalAddress = physicalAddress >> colBitWidth;

@@ -34,6 +34,8 @@
 #include <iostream>
 #include <string>
 #include <stdlib.h>
+#include "config.h"
+#include "util.h"
 
 using namespace std;
 
@@ -48,7 +50,7 @@ namespace HybridSim
 			uint64_t row;
 			uint64_t column;
 
-			cache_line() : channel(0), rank(0), bank(0), row(0), column(0) {}
+			AddressSet() : channel(0), rank(0), bank(0), row(0), column(0) {}
        			string str() 
 			{ 
 				stringstream out; 
@@ -60,7 +62,7 @@ namespace HybridSim
 	class AddressDecode
 	{
 		public:
-			AddressDecode(NVDSim::NVDIMM *llcache);
+			AddressDecode();
 
 			// the actual decode stuff
 			AddressSet getDecode(uint64_t addr);

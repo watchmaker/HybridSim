@@ -86,12 +86,12 @@ namespace HybridSim
 		void saveCacheTable();
 
 		// Helper functions
-		uint64_t getComboAddr(uint64_t set_index, uint64_t i);
+		uint64_t getComboDataAddr(uint64_t set_index, uint64_t i);
 
 		// PaulMod: this enables different tag lookup implementations by allowing us to check for a hit either before and after accessing the main memory
 		void HitCheck(Transaction &trans);
 
-		uint64_t getComboAddr(uint64_t set_index, uint64_t i);
+		uint64_t getComboTagAddr(uint64_t set_index, uint64_t data_address);
 		void ProcessTransaction(Transaction &trans);
 
 		void AlreadyReadVictim(Pending p);
@@ -206,7 +206,7 @@ namespace HybridSim
 		Logger log;
 
 		// Decoder is used to decode addresses for the combo tag associativity implementation
-		AddressDecoder decoder;
+		AddressDecode decoder;
 
 		// Tag Buffer is used to store tags that have been fetched from the main memory for a short time
 		TagBuffer tbuff;
@@ -223,6 +223,7 @@ namespace HybridSim
 		ofstream debug_victim;
 		ofstream debug_nvdimm_trace;
 		ofstream debug_full_trace;
+		ofstream debug_set_addresses;
 
 		// TLB state
 		unordered_map<uint64_t, uint64_t> tlb_base_set; 
