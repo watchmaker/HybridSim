@@ -38,7 +38,7 @@
 #define SEQUENTIAL_PREFETCHING_WINDOW 0
 
 // Stream Buffer Setup.
-#define ENABLE_STREAM_BUFFER 1
+#define ENABLE_STREAM_BUFFER 0
 #define ONE_MISS_TABLE_SIZE 10
 #define NUM_STREAM_BUFFERS 10
 #define STREAM_BUFFER_LENGTH 4
@@ -49,7 +49,7 @@
 // Debug flags.
 
 // Lots of output during cache operations. Goes to stdout.
-#define DEBUG_CACHE 1
+#define DEBUG_CACHE 0
 
 // Lots of output for debugging logging operations. Goes to debug.log.
 #define DEBUG_LOGGER 0		
@@ -67,6 +67,9 @@
 // Need this for different associativity implementations
 #define DEBUG_SET_ADDRESSES 0
 
+// outputs the pieces of the calculation involved in getting the data and tag addresses
+// needed for the combo tag associativity version
+#define DEBUG_COMBO_TAG 0
 
 // Map the first CACHE_PAGES of the NVDIMM address space.
 // This is the initial state of the hybrid memory on boot.

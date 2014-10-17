@@ -366,7 +366,6 @@ namespace HybridSim {
 				isWrite = true;
 			else
 				isWrite = false;
-			cout << "added transaction to " << tmp.address << "\n";
 			not_full = llcache->addTransaction(isWrite, tmp.address);
 			if (not_full)
 			{
@@ -389,7 +388,6 @@ namespace HybridSim {
 			else
 				isWrite = false;
 			not_full = back->addTransaction(isWrite, tmp.address);
-			cout << "added back transaction to " << tmp.address << "\n";
 			if (not_full)
 			{
 				back_queue.pop_front();
@@ -545,18 +543,24 @@ namespace HybridSim {
 	{
 		// accounts for how many accesses each set takes up
 		uint64_t set_piece = (set_index / NVDSim::NUM_PACKAGES) * SET_SIZE;
-		cout << "set index " << set_index << "\n";
-		cout << "set piece " << set_piece << "\n";
 		// accounts for the accesses that are lost because they are either used for tags or can't be used
 		uint64_t waste_piece = (((set_index / NVDSim::NUM_PACKAGES) / SETS_PER_LINE) + 1) * (TAG_OFFSET + WASTE_OFFSET);
-		cout << "waste piece " << waste_piece << "\n";
-		cout << "Tag offset " << TAG_OFFSET << "\n";
-		cout << "Waste offset " << WASTE_OFFSET << "\n";
+
 		// accounts for the number of accesses to add in order to space adjacent sets out across different channels
 		uint64_t blocks_per_channel = NVDSim::DIES_PER_PACKAGE * NVDSim::PLANES_PER_DIE * NVDSim::VIRTUAL_BLOCKS_PER_PLANE * NVDSim::PAGES_PER_BLOCK;
-		cout << "blocks per channel " << blocks_per_channel << "\n";
-		uint64_t channel_piece = (set_index % NVDSim::NUM_PACKAGES) * blocks_per_channel;
-		cout << "channel piece " << channel_piece << "\n";
+		uint64_t channel_piece = (set_index % NVDSim::NUM_PACKAGES) * blocks_per_channel;	
+
+		if(DEBUG_COMBO_TAG)
+		{
+			cerr << "Combo Data Address Calculation: \n";
+			cerr << "set piece " << set_piece << "\n";
+			cerr << "waste piece " << waste_piece << "\n";
+			cerr << "Tag offset " << TAG_OFFSET << "\n";
+			cerr << "Waste offset " << WASTE_OFFSET << "\n";
+			cerr << "blocks per channel " << blocks_per_channel << "\n";
+			cerr << "channel piece " << channel_piece << "\n";
+		}
+
 		// add it all up to get your address
 		return (set_piece + waste_piece + channel_piece + i) * PAGE_SIZE;
 	}
@@ -841,9 +845,12 @@ namespace HybridSim {
 			set_index_pos = (set_index_mod-EXTRA_SETS_FOR_ZERO_GROUP) / (SETS_PER_TAG_GROUP);
 		}
 		
-		cout << "address stuff " << address_stuff.str() << "\n";
-		cout << "set index mod " << set_index_mod << "\n";
-		cout << "set index pos " << set_index_pos << "\n";
+		if(DEBUG_COMBO_TAG)
+		{
+			cerr << "address stuff " << address_stuff.str() << "\n";
+			cerr << "set index mod " << set_index_mod << "\n";
+			cerr << "set index pos " << set_index_pos << "\n";
+		}
 
 		return ((NVDSim::PAGES_PER_BLOCK * (address_stuff.row + NVDSim::VIRTUAL_BLOCKS_PER_PLANE * 
 								   (address_stuff.bank + NVDSim::PLANES_PER_DIE * 
@@ -933,18 +940,18 @@ namespace HybridSim {
 					debug_set_addresses << "=================================================\n";
 					debug_set_addresses << "address is: " << addr << "\n"; 
 					debug_set_addresses << "set index is " << set_index << "\n";
-					debug_set_addresses << "address list is : \n";
 				}
 				
 				// this is the location of the set data that we want
 				// we use this to get the channel, rank, bank and row of the tag that we want
 				uint64_t data_address = getComboDataAddr(set_index, 0);
-
-				cout << "data address " << data_address << "\n";
-
 				uint64_t cache_address = getComboTagAddr(set_index, data_address);
 
-				cout << "cache tag address " << cache_address << "\n";
+				if(DEBUG_SET_ADDRESSES)
+				{
+					debug_set_addresses << "data address " << data_address << "\n";
+					debug_set_addresses << "cache tag address " << cache_address << "\n";
+				}
 				
 				contention_cache_line_lock(cache_address);
 				CacheRead(trans.address, addr, cache_address, trans, true);
@@ -1984,8 +1991,6 @@ namespace HybridSim {
 			pending_addr = addr;
 		}
 
-		cout << "got callback for pending addr " << pending_addr << "\n";
-		cout << "pending addr count is " << cache_pending.count(pending_addr) << "\n";
 		if (cache_pending.count(pending_addr) != 0)
 		{
 			// Get the pending object for this transaction.
@@ -2436,6 +2441,20 @@ namespace HybridSim {
 			}
 			else if (set_counter[set_index] == SET_SIZE)
 			{
+				return false;
+			}
+		}
+		
+		// if we're using the combo tag associativity, make sure that there is not a currently outstanding access to the
+		// tag page for this address
+		
+		if(assocVersion == combo_tag)
+		{
+			uint64_t data_address = getComboDataAddr(set_index, 0);
+			uint64_t cache_address = getComboTagAddr(set_index, data_address);
+			if(cache_pending.count(cache_address) != 0)
+			{
+				cerr << "Issue blocked by tag lookup, this shouldn't happen often \n";
 				return false;
 			}
 		}

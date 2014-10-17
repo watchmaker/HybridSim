@@ -46,12 +46,15 @@ AddressDecode::AddressDecode()
 	colBitWidth = hybridsim_log2(NVDSim::PAGES_PER_BLOCK);
 	colOffset = hybridsim_log2(NVDSim::NV_PAGE_SIZE);
 
-	cout << "channel bits " << channelBitWidth << "\n";
-	cout << "rank bits " << rankBitWidth << "\n";
-	cout << "bank bits " << bankBitWidth << "\n";
-	cout << "row bits " << rowBitWidth << "\n";
-	cout << "col bits " << colBitWidth << "\n";
-	cout << "col offset " << colOffset << "\n";
+	if(DEBUG_COMBO_TAG)
+	{
+		cerr << "channel bits " << channelBitWidth << "\n";
+		cerr << "rank bits " << rankBitWidth << "\n";
+		cerr << "bank bits " << bankBitWidth << "\n";
+		cerr << "row bits " << rowBitWidth << "\n";
+		cerr << "col bits " << colBitWidth << "\n";
+		cerr << "col offset " << colOffset << "\n";
+	}
 }
 
 AddressSet AddressDecode::getDecode(uint64_t addr)
