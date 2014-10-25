@@ -1,0 +1,380 @@
+hybridsim_test main()
+Using trace file /home/pkt3c/Traces/Multi_DIMM/Server/Bing_250M.txt
+Refresh level is: 1
+Refresh control period is: 38
+9Performing CACHE_READ for (0, 0, 0)
+sent trans with addresss 0to NVDIMM 
+got a transaction for address 0
+got a read for plane 0
+Performing CACHE_READ for (8048817472, 138950720, 138950720)
+sent trans with addresss 138950720to NVDIMM 
+got a transaction for address 138950720
+got a read for plane 1
+Performing CACHE_READ for (5985779520, 82069504, 82069504)
+sent trans with addresss 82069504to NVDIMM 
+got a transaction for address 82069504
+sent trans with addresss 256to NVDIMM 
+got a transaction for address 256
+sent trans with addresss 0to NVDIMM 
+got a transaction for address 0
+got a read for plane 3
+sent trans with addresss 138951936to NVDIMM 
+got a transaction for address 138951936
+sent trans with addresss 138950720to NVDIMM 
+got a transaction for address 138950720
+HAD TAGS !!!! AWWWW YISSSSS 
+Performing CACHE_WRITE for (8048817472, 138951936, 138951936)
+sent trans with addresss 138951936to NVDIMM 
+got a transaction for address 138951936
+got data for a write to plane 0
+got a write for plane 0
+got data for a write to plane 1
+got a write for plane 1
+Performing CACHE_READ for (1383217920, 46903296, 46903296)
+sent trans with addresss 46903296to NVDIMM 
+got a transaction for address 46903296
+sent trans with addresss 82069760to NVDIMM 
+got a transaction for address 82069760
+sent trans with addresss 82069504to NVDIMM 
+got a transaction for address 82069504
+got data for a write to plane 0
+got a write for plane 0
+got data for a write to plane 1
+got data for a write to plane 3
+got a write for plane 1
+got a write for plane 3
+got a read for plane 11
+got data for a write to plane 1
+got data for a write to plane 3
+got a write for plane 1
+got a write for plane 3
+sent trans with addresss 46903808to NVDIMM 
+got a transaction for address 46903808
+sent trans with addresss 46903296to NVDIMM 
+got a transaction for address 46903296
+got data for a write to plane 11
+got a write for plane 11
+Performing CACHE_READ for (4823176064, 201013248, 201013248)
+sent trans with addresss 201013248to NVDIMM 
+got a transaction for address 201013248
+got data for a write to plane 11
+got a read for plane 15
+got a write for plane 11
+sent trans with addresss 201014016to NVDIMM 
+got a transaction for address 201014016
+sent trans with addresss 201013248to NVDIMM 
+got a transaction for address 201013248
+got data for a write to plane 15
+got a write for plane 15
+got data for a write to plane 15
+got a write for plane 15
+Performing CACHE_READ for (8043846784, 200378496, 200378496)
+sent trans with addresss 200378496to NVDIMM 
+got a transaction for address 200378496
+got a read for plane 15
+sent trans with addresss 200379904to NVDIMM 
+got a transaction for address 200379904
+sent trans with addresss 200378496to NVDIMM 
+got a transaction for address 200378496
+got data for a write to plane 15
+HAD TAGS !!!! AWWWW YISSSSS 
+Performing CACHE_WRITE for (8043846784, 200379904, 200379904)
+sent trans with addresss 200379904to NVDIMM 
+got a transaction for address 200379904
+got a write for plane 15
+Performing CACHE_READ for (8043894976, 267542592, 267542592)
+sent trans with addresss 267542592to NVDIMM 
+got a transaction for address 267542592
+Performing CACHE_READ for (7489476800, 247488576, 247488576)
+sent trans with addresss 247488576to NVDIMM 
+got a transaction for address 247488576
+got a read for plane 15
+got data for a write to plane 15
+got a write for plane 15
+got a read for plane 11
+got data for a write to plane 15
+sent trans with addresss 267543808to NVDIMM 
+got a transaction for address 267543808
+sent trans with addresss 267542592to NVDIMM 
+got a transaction for address 267542592
+HAD TAGS !!!! AWWWW YISSSSS 
+Performing CACHE_WRITE for (8043894976, 267543808, 267543808)
+sent trans with addresss 267543808to NVDIMM 
+got a transaction for address 267543808
+Performing CACHE_READ for (8043895040, 66216064, 66216064)
+sent trans with addresss 66216064to NVDIMM 
+got a transaction for address 66216064
+got a write for plane 15
+got a read for plane 15
+got data for a write to plane 15
+sent trans with addresss 247489792to NVDIMM 
+got a transaction for address 247489792
+got a write for plane 15
+sent trans with addresss 247488576to NVDIMM 
+got a transaction for address 247488576
+Performing CACHE_READ for (8049645824, 72788096, 72788096)
+sent trans with addresss 72788096to NVDIMM 
+got a transaction for address 72788096
+got a read for plane 1
+got data for a write to plane 15
+sent trans with addresss 66217472to NVDIMM 
+got a transaction for address 66217472
+sent trans with addresss 66216064to NVDIMM 
+got a transaction for address 66216064
+HAD TAGS !!!! AWWWW YISSSSS 
+Performing CACHE_WRITE for (8043895040, 66217472, 66217472)
+sent trans with addresss 66217472to NVDIMM 
+got a transaction for address 66217472
+got a write for plane 15
+got data for a write to plane 15
+got a write for plane 15
+sent trans with addresss 72789760to NVDIMM 
+got a transaction for address 72789760
+sent trans with addresss 72788096to NVDIMM 
+got a transaction for address 72788096
+got data for a write to plane 15
+got a write for plane 15
+got data for a write to plane 1
+got a write for plane 1
+got data for a write to plane 15
+got a write for plane 15
+got data for a write to plane 11
+got a write for plane 11
+got data for a write to plane 1
+got a write for plane 1
+got data for a write to plane 15
+got a write for plane 15
+got data for a write to plane 11
+got a write for plane 11
+Performing CACHE_READ for (8050394624, 73644160, 73644160)
+sent trans with addresss 73644160to NVDIMM 
+got a transaction for address 73644160
+got a read for plane 1
+Performing CACHE_READ for (7409484160, 165656576, 165656576)
+sent trans with addresss 165656576to NVDIMM 
+got a transaction for address 165656576
+sent trans with addresss 73645568to NVDIMM 
+got a transaction for address 73645568
+sent trans with addresss 73644160to NVDIMM 
+got a transaction for address 73644160
+HAD TAGS !!!! AWWWW YISSSSS 
+Performing CACHE_WRITE for (8050394624, 73645568, 73645568)
+sent trans with addresss 73645568to NVDIMM 
+got a transaction for address 73645568
+got a read for plane 7
+got data for a write to plane 1
+got a write for plane 1
+Performing CACHE_READ for (1383217984, 114012160, 114012160)
+sent trans with addresss 114012160to NVDIMM 
+got a transaction for address 114012160
+got data for a write to plane 1
+sent trans with addresss 165656832to NVDIMM 
+got a transaction for address 165656832
+sent trans with addresss 165656576to NVDIMM 
+got a transaction for address 165656576
+got a write for plane 1
+got data for a write to plane 7
+got a write for plane 7
+got data for a write to plane 1
+got a write for plane 1
+got data for a write to plane 7
+got a write for plane 7
+got a read for plane 11
+sent trans with addresss 114012672to NVDIMM 
+got a transaction for address 114012672
+sent trans with addresss 114012160to NVDIMM 
+got a transaction for address 114012160
+got data for a write to plane 11
+got a write for plane 11
+got data for a write to plane 11
+Performing CACHE_READ for (1387253696, 252841984, 252841984)
+sent trans with addresss 252841984to NVDIMM 
+got a transaction for address 252841984
+got a write for plane 11
+got a read for plane 12
+sent trans with addresss 252842496to NVDIMM 
+got a transaction for address 252842496
+sent trans with addresss 252841984to NVDIMM 
+got a transaction for address 252841984
+got data for a write to plane 12
+got a write for plane 12
+got data for a write to plane 12
+got a write for plane 12
+Performing CACHE_READ for (7530910848, 151037952, 151037952)
+sent trans with addresss 151037952to NVDIMM 
+got a transaction for address 151037952
+Performing CACHE_READ for (7462179968, 149184512, 149184512)
+sent trans with addresss 149184512to NVDIMM 
+got a transaction for address 149184512
+got a read for plane 4
+got a read for plane 3
+sent trans with addresss 151038464to NVDIMM 
+got a transaction for address 151038464
+sent trans with addresss 151037952to NVDIMM 
+got a transaction for address 151037952
+got data for a write to plane 4
+sent trans with addresss 149184768to NVDIMM 
+got a transaction for address 149184768
+sent trans with addresss 149184512to NVDIMM 
+got a transaction for address 149184512
+got a write for plane 4
+got data for a write to plane 4
+got a write for plane 4
+got data for a write to plane 3
+got a write for plane 3
+got data for a write to plane 3
+got a write for plane 3
+Performing CACHE_READ for (7396737344, 83978368, 83978368)
+sent trans with addresss 83978368to NVDIMM 
+got a transaction for address 83978368
+got a read for plane 4
+Performing CACHE_READ for (136390400, 2482240, 2482240)
+sent trans with addresss 2482240to NVDIMM 
+got a transaction for address 2482240
+sent trans with addresss 83980032to NVDIMM 
+got a transaction for address 83980032
+got a read for plane 0
+sent trans with addresss 83978368to NVDIMM 
+got a transaction for address 83978368
+got data for a write to plane 4
+got a write for plane 4
+sent trans with addresss 2483200to NVDIMM 
+got a transaction for address 2483200
+sent trans with addresss 2482240to NVDIMM 
+got a transaction for address 2482240
+got data for a write to plane 4
+Performing CACHE_READ for (3254375424, 37884032, 37884032)
+sent trans with addresss 37884032to NVDIMM 
+got a transaction for address 37884032
+got a write for plane 4
+got data for a write to plane 0
+got a write for plane 0
+got data for a write to plane 0
+got a write for plane 0
+got a read for plane 9
+sent trans with addresss 37885696to NVDIMM 
+got a transaction for address 37885696
+sent trans with addresss 37884032to NVDIMM 
+got a transaction for address 37884032
+got data for a write to plane 9
+got a write for plane 9
+got data for a write to plane 9
+got a write for plane 9
+Performing CACHE_READ for (8043899328, 267548672, 267548672)
+sent trans with addresss 267548672to NVDIMM 
+got a transaction for address 267548672
+got a read for plane 15
+sent trans with addresss 267548928to NVDIMM 
+got a transaction for address 267548928
+sent trans with addresss 267548672to NVDIMM 
+got a transaction for address 267548672
+got data for a write to plane 15
+got a write for plane 15
+got data for a write to plane 15
+got a write for plane 15
+Performing CACHE_READ for (3145206720, 267839488, 267839488)
+sent trans with addresss 267839488to NVDIMM 
+got a transaction for address 267839488
+got a read for plane 15
+sent trans with addresss 267839744to NVDIMM 
+got a transaction for address 267839744
+sent trans with addresss 267839488to NVDIMM 
+got a transaction for address 267839488
+got data for a write to plane 15
+got a write for plane 15
+got data for a write to plane 15
+got a write for plane 15
+Performing CACHE_READ for (1383218112, 248229888, 248229888)
+sent trans with addresss 248229888to NVDIMM 
+got a transaction for address 248229888
+got a read for plane 11
+Performing CACHE_READ for (8002627072, 19052672, 19052672)
+sent trans with addresss 19052672to NVDIMM 
+got a transaction for address 19052672
+got a read for plane 4
+sent trans with addresss 248230400to NVDIMM 
+got a transaction for address 248230400
+sent trans with addresss 248229888to NVDIMM 
+got a transaction for address 248229888
+sent trans with addresss 19054080to NVDIMM 
+got a transaction for address 19054080
+sent trans with addresss 19052672to NVDIMM 
+got a transaction for address 19052672
+got data for a write to plane 11
+got a write for plane 11
+Performing CACHE_READ for (8041115456, 130148416, 130148416)
+sent trans with addresss 130148416to NVDIMM 
+got a transaction for address 130148416
+got data for a write to plane 4
+got a read for plane 15
+got a write for plane 4
+got data for a write to plane 11
+got a write for plane 11
+Performing CACHE_READ for (2791560256, 112932928, 112932928)
+sent trans with addresss 112932928to NVDIMM 
+got a transaction for address 112932928
+got data for a write to plane 4
+got a read for plane 10
+got a write for plane 4
+sent trans with addresss 130149632to NVDIMM 
+got a transaction for address 130149632
+sent trans with addresss 130148416to NVDIMM 
+got a transaction for address 130148416
+HAD TAGS !!!! AWWWW YISSSSS 
+Performing CACHE_WRITE for (8041115456, 130149632, 130149632)
+sent trans with addresss 130149632to NVDIMM 
+got a transaction for address 130149632
+got data for a write to plane 15
+sent trans with addresss 112933888to NVDIMM 
+got a transaction for address 112933888
+sent trans with addresss 112932928to NVDIMM 
+got a transaction for address 112932928
+got a write for plane 15
+got data for a write to plane 15
+got a write for plane 15
+got data for a write to plane 15
+got a write for plane 15
+got data for a write to plane 10
+got a write for plane 10
+got data for a write to plane 10
+got a write for plane 10
+Performing CACHE_READ for (4432031936, 204578880, 204578880)
+sent trans with addresss 204578880to NVDIMM 
+got a transaction for address 204578880
+got a read for plane 0
+Performing CACHE_READ for (8004984576, 21747712, 21747712)
+sent trans with addresss 21747712to NVDIMM 
+got a transaction for address 21747712
+got a read for plane 5
+sent trans with addresss 204580096to NVDIMM 
+got a transaction for address 204580096
+sent trans with addresss 204578880to NVDIMM 
+got a transaction for address 204578880
+got data for a write to plane 0
+got a write for plane 0
+Performing CACHE_READ for (3254375552, 172101760, 172101760)
+sent trans with addresss 172101760to NVDIMM 
+got a transaction for address 172101760
+got a read for plane 9
+sent trans with addresss 21748480to NVDIMM 
+got a transaction for address 21748480
+sent trans with addresss 21747712to NVDIMM 
+got a transaction for address 21747712
+got data for a write to plane 0
+got data for a write to plane 5
+got a write for plane 0
+got a write for plane 5
+sent trans with addresss 172103424to NVDIMM 
+got a transaction for address 172103424
+sent trans with addresss 172101760to NVDIMM 
+got a transaction for address 172101760
+got data for a write to plane 5
+got a write for plane 5
+got data for a write to plane 9
+got a write for plane 9
+Performing CACHE_READ for (1407787968, 7874560, 7874560)
+sent trans with addresss 7874560to NVDIMM 
+got a transaction for address 7874560
+got data for a write to plane 9
+got a read for plane 1
+got a write for plane 9

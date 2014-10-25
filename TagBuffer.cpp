@@ -220,7 +220,6 @@ namespace HybridSim {
 			{	
 				// TODO: Not sure if this is going to work, need to check it
 				(*it).used = true;
-				cout << "HAD TAGS !!!! AWWWW YISSSSS \n";
 				return true;
 			}
 		}

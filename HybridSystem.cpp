@@ -1314,7 +1314,6 @@ namespace HybridSim {
 		// Compute the actual CACHE address of the data word we care about.
 		uint64_t data_addr = cache_addr + PAGE_OFFSET(back_addr);
 		assert(cache_addr == PAGE_ADDRESS(data_addr));
-
 		
 
 		// if we're doing the channel tag lookup scheme then we need to issue a read to each channel to get that channel's tags
@@ -1466,7 +1465,7 @@ namespace HybridSim {
 
 		// Compute the actual CACHE address of the data word we care about.
 		uint64_t data_addr = cache_addr + PAGE_OFFSET(back_addr);
-
+		
 		Transaction t = Transaction(DATA_WRITE, data_addr, NULL);
 		cache_queue.push_back(t);
 
@@ -2454,7 +2453,7 @@ namespace HybridSim {
 			uint64_t cache_address = getComboTagAddr(set_index, data_address);
 			if(cache_pending.count(cache_address) != 0)
 			{
-				cerr << "Issue blocked by tag lookup, this shouldn't happen often \n";
+				//cerr << "Issue blocked by tag lookup, this shouldn't happen often \n";
 				return false;
 			}
 		}
