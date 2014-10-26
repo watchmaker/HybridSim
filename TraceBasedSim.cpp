@@ -136,7 +136,7 @@ void transaction_complete(uint64_t clock_cycle)
 	complete++;
 	pending--;
 
-	if ((complete % 10000 == 0) || (clock_cycle - last_clock > CLOCK_DELAY))
+	if ((complete % 100 == 0) || (clock_cycle - last_clock > CLOCK_DELAY))
 	{
 		cout << "complete= " << complete << "\t\tpending= " << pending << "\t\t cycle_count= "<< clock_cycle << "\t\tthrottle_count=" << throttle_count << "\n";
 		last_clock = clock_cycle;

@@ -2,8 +2,8 @@
 
 ###################################################
 
-CXXFLAGS=-m64 -DNO_STORAGE -Wall -DDEBUG_BUILD -std=c++0x
-OPTFLAGS=-m64 -O3
+CXXFLAGS=-m64 -DNO_STORAGE -Wall -DDEBUG_BUILD -std=c++0x 
+OPTFLAGS=-m64 -O0 -g
 
 
 ifdef DEBUG

@@ -1009,7 +1009,7 @@ namespace HybridSim {
 		assert(cache_pending.count(p.cache_addr) == 0);
 		cache_pending[p.cache_addr] = p;
 
-		if(assocVersion == tag_tlb)
+		if(assocVersion == tag_tlb || assocVersion == combo_tag) 
 		{
 #if SINGLE_WORD
 			// Schedule a read from CACHE to get the line being evicted.
@@ -1102,7 +1102,7 @@ namespace HybridSim {
 		// contention_unlock will only unlock if the pending_page counter is 0.
 		// This means that LINE_READ finished first and that the pending set was not removed
 		// in the CacheReadFinish or CacheWriteFinish functions (or LineReadFinish for PREFETCH).
-		uint64_t victim_address = BACK_ADDRESS(p.victim_tag, SET_INDEX(p.cache_addr));
+		uint64_t victim_address = BACK_ADDRESS(p.victim_tag, SET_INDEX(p.back_addr));
 		contention_unlock(p.back_addr, p.orig_addr, "VICTIM_READ", p.victim_valid, victim_address, true, p.cache_addr);
 
 		// Schedule a write to the back to simulate the transfer
@@ -1276,7 +1276,7 @@ namespace HybridSim {
 			// Note: the if statement is needed to ensure that the VictimRead operation (if it was invoked as part of a cache miss)
 			// is already complete. If not, the pending_set removal will be done in VictimReadFinish().
 
-			uint64_t victim_address = BACK_ADDRESS(p.victim_tag, SET_INDEX(p.cache_addr));
+			uint64_t victim_address = BACK_ADDRESS(p.victim_tag, SET_INDEX(p.back_addr));
 			contention_unlock(p.back_addr, p.orig_addr, "PREFETCH", p.victim_valid, victim_address, true, p.cache_addr);
 		}
 	}
@@ -1378,7 +1378,7 @@ namespace HybridSim {
 			cerr << currentClockCycle << ": " << "CACHE_READ callback for (" << p.back_addr << ", " << p.cache_addr << ")\n";
 
 		// Erase the page from the pending set.
-		uint64_t victim_address = BACK_ADDRESS(p.victim_tag, SET_INDEX(p.cache_addr));
+		uint64_t victim_address = BACK_ADDRESS(p.victim_tag, SET_INDEX(p.back_addr));
 		if(assocVersion == direct && !line_read && !p.callback_sent)
 		{
 			
@@ -1510,7 +1510,7 @@ namespace HybridSim {
 		// Erase the page from the pending set.
 		// Note: the if statement is needed to ensure that the VictimRead operation (if it was invoked as part of a cache miss)
 		// is already complete. If not, the pending_set removal will be done in VictimReadFinish().
-		uint64_t victim_address = BACK_ADDRESS(p.victim_tag, SET_INDEX(p.cache_addr));
+		uint64_t victim_address = BACK_ADDRESS(p.victim_tag, SET_INDEX(p.back_addr));
 		contention_unlock(p.back_addr, p.orig_addr, "CACHE_WRITE", p.victim_valid, victim_address, true, p.cache_addr);
 	}
 
