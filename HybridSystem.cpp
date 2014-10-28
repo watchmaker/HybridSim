@@ -929,6 +929,10 @@ namespace HybridSim {
 			{
 				// if we do have the tags then there's no need to issue a tag lookup to the cache
 				// so we just go directly to the check tags phase
+				if(ENABLE_LOGGER)
+				{
+					log.tag_buffer_hit();
+				}
 				HitCheck(trans);
 			}
 			else

@@ -61,6 +61,8 @@ namespace HybridSim
 		uint64_t num_read_hits;
 		uint64_t num_write_misses;
 		uint64_t num_write_hits;
+
+		uint64_t num_tag_hits;
 		
 		uint64_t sum_latency;
 		uint64_t sum_read_latency;
@@ -102,6 +104,8 @@ namespace HybridSim
 		uint64_t cur_num_read_hits;
 		uint64_t cur_num_write_misses;
 		uint64_t cur_num_write_hits;
+
+		uint64_t cur_num_tag_hits;
 		
 		uint64_t cur_sum_latency;
 		uint64_t cur_sum_read_latency;
@@ -243,6 +247,8 @@ namespace HybridSim
 		void read_miss();
 		void write_hit();
 		void write_miss();
+
+		void tag_buffer_hit();
 
 		double compute_running_average(double old_average, double num_values, double new_value);
 		void latency(uint64_t cycles);

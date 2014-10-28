@@ -59,6 +59,8 @@ namespace HybridSim
 		num_write_misses = 0;
 		num_write_hits = 0;
 
+		num_tag_hits = 0;
+
 		sum_latency = 0;
 		sum_read_latency = 0;
 		sum_write_latency = 0;
@@ -481,6 +483,12 @@ namespace HybridSim
 		cur_num_write_misses += 1;
 	}
 
+	void Logger::tag_buffer_hit()
+	{
+		num_tag_hits += 1;
+		cur_num_tag_hits += 1;
+	}
+
 
 	double Logger::compute_running_average(double old_average, double num_values, double new_value)
 	{
@@ -684,6 +692,11 @@ namespace HybridSim
 			savefile << "misses: " << cur_num_misses << "\n";
 			savefile << "hits: " << cur_num_hits << "\n";
 			savefile << "miss rate: " << this->divide(cur_num_misses, cur_num_accesses) << "\n";
+			if(assocVersion == combo_tag)
+			{
+				savefile << "tag hits: " << cur_num_tag_hits << "\n";
+				savefile << "tag hit rate: " << this->divide(cur_num_tag_hits, cur_num_accesses) << "\n";
+			}
 			savefile << "average latency: " << this->latency_cycles(cur_sum_latency, cur_num_accesses) << " cycles";
 			savefile << " (" << this->latency_us(cur_sum_latency, cur_num_accesses) << " us)\n";
 			savefile << "average queue latency: " << this->latency_cycles(cur_sum_queue_latency, cur_num_accesses) << " cycles";
@@ -785,6 +798,8 @@ namespace HybridSim
 		cur_num_write_misses = 0;
 		cur_num_write_hits = 0;
 
+		cur_num_tag_hits = 0;
+
 		cur_sum_latency = 0;
 		cur_sum_read_latency = 0;
 		cur_sum_write_latency = 0;
@@ -829,6 +844,11 @@ namespace HybridSim
 		savefile << "misses: " << num_misses << "\n";
 		savefile << "hits: " << num_hits << "\n";
 		savefile << "miss rate: " << miss_rate() << "\n";
+		if(assocVersion == combo_tag)
+		{
+			savefile << "tag hits: " << num_tag_hits << "\n";
+			savefile << "tag hit rate: " << this->divide(num_tag_hits, num_accesses) << "\n";
+		}
 		savefile << "average latency: " << this->latency_cycles(sum_latency, num_accesses) << " cycles";
 		savefile << " (" << this->latency_us(sum_latency, num_accesses) << " us)\n";
 		savefile << "average queue latency: " << this->latency_cycles(sum_queue_latency, num_accesses) << " cycles";
