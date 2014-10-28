@@ -203,6 +203,7 @@ int HybridSimTBS::run_trace(string tracefile)
 			}
 		}		
 	}
+	done = false;
 
 	while (inFile.good() && !done)
 	{
