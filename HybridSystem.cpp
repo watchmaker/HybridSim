@@ -546,9 +546,18 @@ namespace HybridSim {
 		// accounts for the accesses that are lost because they are either used for tags or can't be used
 		uint64_t waste_piece = (((set_index / NVDSim::NUM_PACKAGES) / SETS_PER_LINE) + 1) * (TAG_OFFSET + WASTE_OFFSET);
 
+		uint64_t channel_piece = set_index % NVDSim::NUM_PACKAGES;
+		uint64_t rank_piece = (set_index / NVDSim::NUM_PACKAGES * SETS_PER_LINE) % NVDSim::DIES_PER_PACKAGE;
+		uint64_t bank_piece = (set_index / (NVDSim::NUM_PACKAGES * NVDSim::DIES_PER_PACKAGE * SETS_PER_LINE)) % NVDSim::PLANES_PER_DIE;
+		uint64_t row_piece =  (set_index / (NVDSim::NUM_PACKAGES * NVDSim::DIES_PER_PACKAGE * NVDSim::PLANES_PER_DIE * SETS_PER_LINE)) % NVDSim::VIRTUAL_BLOCKS_PER_PLANE;
+		uint64_t this_offset_amount = (TAG_OFFSET + WASTE_OFFSET) * NUM_ROWS;
+		uint64_t next_address = (channel_piece + (rank_piece * NVDSim::NUM_PACKAGES) + (bank_piece * (NVDSim::NUM_PACKAGES * NVDSim::DIES_PER_PACKAGE)) + (row_piece * (NVDSim::NUM_PACKAGES * NVDSim::DIES_PER_PACKAGE * NVDSim::PLANES_PER_DIE)) + this_offset_amount + (i * NUM_ROWS) + (((set_index / (NVDSim::NUM_PACKAGES)) % SETS_PER_LINE)*SET_SIZE * NUM_ROWS)) * NVDSim::NV_PAGE_SIZE;
+
+		// commented for now for future study
+		/*
 		// accounts for the number of accesses to add in order to space adjacent sets out across different channels
 		uint64_t blocks_per_channel = NVDSim::DIES_PER_PACKAGE * NVDSim::PLANES_PER_DIE * NVDSim::VIRTUAL_BLOCKS_PER_PLANE * NVDSim::PAGES_PER_BLOCK;
-		uint64_t channel_piece = (set_index % NVDSim::NUM_PACKAGES) * blocks_per_channel;	
+		uint64_t channel_piece = (set_index % NVDSim::NUM_PACKAGES) * blocks_per_channel;	*/
 
 		if(DEBUG_COMBO_TAG)
 		{
@@ -557,12 +566,15 @@ namespace HybridSim {
 			cerr << "waste piece " << waste_piece << "\n";
 			cerr << "Tag offset " << TAG_OFFSET << "\n";
 			cerr << "Waste offset " << WASTE_OFFSET << "\n";
-			cerr << "blocks per channel " << blocks_per_channel << "\n";
 			cerr << "channel piece " << channel_piece << "\n";
+			cerr << "rank piece " << rank_piece << "\n";
+			cerr << "bank piece " << bank_piece << "\n";
+			cerr << "row piece " << row_piece << "\n";
+			cerr << "next address " << next_address << "\n";
 		}
 
 		// add it all up to get your address
-		return (set_piece + waste_piece + channel_piece + i) * PAGE_SIZE;
+		return next_address;
 	}
 
         void HybridSystem::HitCheck(Transaction &trans)
@@ -852,11 +864,14 @@ namespace HybridSim {
 			cerr << "set index pos " << set_index_pos << "\n";
 		}
 
+		return (address_stuff.channel + (address_stuff.rank * (NVDSim::NUM_PACKAGES)) + (address_stuff.bank * (NVDSim::NUM_PACKAGES * NVDSim::DIES_PER_PACKAGE)) + (address_stuff.row * (NVDSim::NUM_PACKAGES * NVDSim::DIES_PER_PACKAGE * NVDSim::PLANES_PER_DIE)) + (set_index_pos * NUM_ROWS)) * NVDSim::NV_PAGE_SIZE;
+
+		/* Commented for future study
 		return ((NVDSim::PAGES_PER_BLOCK * (address_stuff.row + NVDSim::VIRTUAL_BLOCKS_PER_PLANE * 
 								   (address_stuff.bank + NVDSim::PLANES_PER_DIE * 
 								    (address_stuff.rank + (NVDSim::DIES_PER_PACKAGE * 
 											   address_stuff.channel))))) + 
-					  set_index_pos) * PAGE_SIZE;
+											   set_index_pos) * PAGE_SIZE;*/
 	}
 
 	void HybridSystem::ProcessTransaction(Transaction &trans)
