@@ -62,32 +62,50 @@ AddressSet AddressDecode::getDecode(uint64_t addr)
 	uint64_t physicalAddress, tempA, tempB;
 	AddressSet decoded_addr;
 
-	physicalAddress = addr >> colOffset;
+	if(hybridsim_check_power2(NVDSim::BLOCKS_PER_PLANE))
+	{
+		physicalAddress = addr >> colOffset;
+		
+		tempA = physicalAddress;
+		physicalAddress = physicalAddress >> colBitWidth;
+		tempB = physicalAddress << colBitWidth;
+		decoded_addr.column = tempA ^ tempB;
+		
+		tempA = physicalAddress;
+		physicalAddress = physicalAddress >> rowBitWidth;
+		tempB = physicalAddress << rowBitWidth;
+		decoded_addr.row = tempA ^ tempB;
+		
+		tempA = physicalAddress;
+		physicalAddress = physicalAddress >> bankBitWidth;
+		tempB = physicalAddress << bankBitWidth;
+		decoded_addr.bank = tempA ^ tempB;
+		
+		tempA = physicalAddress;
+		physicalAddress = physicalAddress >> rankBitWidth;
+		tempB = physicalAddress << rankBitWidth;
+		decoded_addr.rank = tempA ^ tempB;
 				
-	tempA = physicalAddress;
-	physicalAddress = physicalAddress >> colBitWidth;
-	tempB = physicalAddress << colBitWidth;
-	decoded_addr.column = tempA ^ tempB;
-				
-	tempA = physicalAddress;
-	physicalAddress = physicalAddress >> rowBitWidth;
-	tempB = physicalAddress << rowBitWidth;
-	decoded_addr.row = tempA ^ tempB;
-				
-	tempA = physicalAddress;
-	physicalAddress = physicalAddress >> bankBitWidth;
-	tempB = physicalAddress << bankBitWidth;
-	decoded_addr.bank = tempA ^ tempB;
-			
-	tempA = physicalAddress;
-	physicalAddress = physicalAddress >> rankBitWidth;
-	tempB = physicalAddress << rankBitWidth;
-	decoded_addr.rank = tempA ^ tempB;
-				
-	tempA = physicalAddress;
-	physicalAddress = physicalAddress >> channelBitWidth;
-	tempB = physicalAddress << channelBitWidth;
-	decoded_addr.channel = tempA ^ tempB;
+		tempA = physicalAddress;
+		physicalAddress = physicalAddress >> channelBitWidth;
+		tempB = physicalAddress << channelBitWidth;
+		decoded_addr.channel = tempA ^ tempB;
+	}
+	else
+	{
+		physicalAddress = addr;
 
+		physicalAddress /= NVDSim::NV_PAGE_SIZE;
+		decoded_addr.column = physicalAddress % NVDSim::PAGES_PER_BLOCK;
+		physicalAddress /= NVDSim::PAGES_PER_BLOCK;
+		decoded_addr.row = physicalAddress % NVDSim::BLOCKS_PER_PLANE;
+		physicalAddress /= NVDSim::BLOCKS_PER_PLANE;
+		decoded_addr.bank = physicalAddress % NVDSim::PLANES_PER_DIE;
+		physicalAddress /= NVDSim::PLANES_PER_DIE;
+		decoded_addr.rank = physicalAddress % NVDSim::DIES_PER_PACKAGE;
+		physicalAddress /= NVDSim::DIES_PER_PACKAGE;
+		decoded_addr.channel = physicalAddress % NVDSim::NUM_PACKAGES;
+	}
+	
 	return decoded_addr;	
 }

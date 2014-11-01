@@ -69,4 +69,22 @@ unsigned inline hybridsim_log2(unsigned value)
 	return logbase2;
 }
 
+bool inline hybridsim_check_power2(unsigned value)
+{
+	unsigned logbase2 = 0;
+	unsigned orig = value;
+
+	value>>=1;
+	while (value>0)
+	{
+		value >>= 1;
+		logbase2++;
+	}
+	if(1U<<logbase2 != orig)
+	{
+		return false;
+	}
+	return true;
+}
+
 #endif
