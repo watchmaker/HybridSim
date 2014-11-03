@@ -599,9 +599,13 @@ namespace HybridSim {
 		if(ENABLE_LOGGER)
 			log.access_set(set_index);
 
-		
-		// generate the memory address list for this set
 		list<uint64_t> set_address_list;
+		bool hit = false;
+		uint64_t cache_address = *(set_address_list.begin());
+		uint64_t cur_address;
+		cache_line cur_line;
+
+		// generate the memory address list for this set
 		for (uint64_t i=0; i<SET_SIZE; i++)
 		{
 			uint64_t next_address = 0;
@@ -625,12 +629,8 @@ namespace HybridSim {
 			}
 			set_address_list.push_back(next_address);
 		}
-		
+
 		// see if we have a hit
-		bool hit = false;
-		uint64_t cache_address = *(set_address_list.begin());
-		uint64_t cur_address;
-		cache_line cur_line;
 		for (list<uint64_t>::iterator it = set_address_list.begin(); it != set_address_list.end(); ++it)
 		{
 			cur_address = *it;
