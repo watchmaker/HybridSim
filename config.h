@@ -216,7 +216,7 @@ extern uint64_t SETS_PER_TAG_GROUP;
 #define WASTE_OFFSET (NVDSim::PAGES_PER_BLOCK - ((SETS_PER_LINE / SETS_PER_TAG_GROUP) + (SETS_PER_LINE * SET_SIZE)))
 // update the cache page variable to reflect the wasted cache pages due to tag storage
 #define NUM_ROWS (NVDSim::NUM_PACKAGES * NVDSim::DIES_PER_PACKAGE * NVDSim::PLANES_PER_DIE * NVDSim::BLOCKS_PER_PLANE)
-#define COMBO_CACHE_PAGES ((CACHE_PAGES - ((NUM_ROWS) * (TAG_OFFSET + WASTE_OFFSET))) / SET_SIZE)
+#define COMBO_CACHE_PAGES (CACHE_PAGES - ((NUM_ROWS) * (TAG_OFFSET + WASTE_OFFSET)))
 #define ACTUAL_CACHE_PAGES (assocVersion == combo_tag ? COMBO_CACHE_PAGES : CACHE_PAGES)
 
 enum TagReplacement
