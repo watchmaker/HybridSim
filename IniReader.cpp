@@ -235,13 +235,21 @@ string NVDIMM_SAVE_FILE = "none";
 			        {
 					tagReplacement = tag_lru;
 			        }
-				else if(value.compare("NRU") == 0)
+				else if(value.compare("RU") == 0)
 				{
-					tagReplacement = tag_nru;
+					tagReplacement = tag_ru;
 				}
 				else if(value.compare("FIFO") == 0)
 				{
 					tagReplacement = tag_fifo;
+				}
+				else if(value.compare("RANDOM") == 0)
+				{
+					tagReplacement = tag_random;
+				}
+				else if(value.compare("MRU") == 0)
+				{
+					tagReplacement = tag_mru;
 				}
 				else
 				{

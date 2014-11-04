@@ -95,9 +95,9 @@ namespace HybridSim {
 					(*victim).ts = currentClockCycle;					
 					
 				}
-				else if(tagReplacement == tag_nru)
+				else if(tagReplacement == tag_ru)
 				{
-					// search the tag buffer for the oldest 
+					// search the tag buffer for anything that has been used to evict
 					// no need to write back though, they are just tags
 					bool done = false;
 					for(std::list<tag_line>::iterator it = tag_buffer[tag_buffer_set].begin(); it != tag_buffer[tag_buffer_set].end(); it++)
@@ -159,6 +159,58 @@ namespace HybridSim {
 					new_line.ts = currentClockCycle;
 					
 					tag_buffer[tag_buffer_set].push_back(new_line);
+				}
+				else if(tagReplacement == tag_mru)
+				{
+					// search the tag buffer for the most recently used thing to evict
+					// no need to write back though, they are just tags
+					bool search_init = true;
+					uint64_t newest_ts = 0;	
+					for(std::list<tag_line>::iterator it = tag_buffer[tag_buffer_set].begin(); it != tag_buffer[tag_buffer_set].end(); it++)
+					{
+						//first is the key which is the tag address
+						//second is the actual tag line structure with the time stamp
+						// we do less than here cause older time stamps will be smaller
+						if((it->ts > newest_ts && it->ts != currentClockCycle && it->used == true) || search_init)
+						{
+							search_init = false; 
+							newest_ts = it->ts;
+							victim = it;
+						}
+					}
+					
+					if(search_init == false)
+					{
+						// now replace the victim with the new stuff
+						(*victim).set_index = tags[tags_index];
+						(*victim).valid = true;
+						(*victim).used = false;
+						(*victim).prefetched = prefetched;
+						(*victim).ts = currentClockCycle;
+					}
+					// if nothing has been used, just pop from a random location
+					else
+					{
+						// making use of a lot of standard library algorithms here to avoid random selection bias
+						std::uniform_int_distribution<uint64_t> set_list_dist(0, tag_buffer[tag_buffer_set].size()-1);
+						std::default_random_engine rand_gen;
+						
+						// might have to do this multiple times to fine a line that is not one that we just replaced
+						bool done = false;
+						while(!done)
+						{
+							advance(victim, set_list_dist(rand_gen));
+							if((*victim).ts != currentClockCycle)
+								done = true;
+						}
+
+						// now replace the victim with the new stuff
+						(*victim).set_index = tags[tags_index];
+						(*victim).valid = true;
+						(*victim).used = false;
+						(*victim).prefetched = prefetched;
+						(*victim).ts = currentClockCycle;
+					}
 				}
 				// default random replacement
 				else

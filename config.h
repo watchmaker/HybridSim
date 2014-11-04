@@ -222,8 +222,10 @@ extern uint64_t SETS_PER_TAG_GROUP;
 enum TagReplacement
 {
 	tag_lru,
-	tag_nru,
-	tag_fifo
+	tag_ru,
+	tag_fifo,
+	tag_random,
+	tag_mru
 };
 extern string TAG_REPLACEMENT;
 extern TagReplacement tagReplacement; 
