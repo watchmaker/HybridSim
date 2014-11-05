@@ -38,6 +38,15 @@ namespace HybridSim {
 	{
 		//initializing the parallel set structures for the tag cache
 		//tag_buffer = unordered_map<uint64_t, list<tag_line> >(NUM_TAG_SETS, list<tag_line>());
+		if (DEBUG_COMBO_TAG)
+		{
+			debug_tag_buffer.open("tag_buffer.log", ios_base::out | ios_base::trunc);
+			if (!debug_tag_buffer.is_open())
+			{
+				cerr << "ERROR: HybridSim debug_tag_buffer file failed to open.\n";
+				abort();
+			}
+		}
 	}
 
 	// right now this just steps to keep the clock cycle count accurate for 
@@ -52,12 +61,23 @@ namespace HybridSim {
 	void TagBuffer::addTags(vector<uint64_t> tags, bool prefetched)
 	{
 		// NOTE: to do fully associative, set the number of sets to 1 and the number of ways to whatever size you want
-	
+		if(DEBUG_COMBO_TAG)
+		{
+			debug_tag_buffer << "ADDING TAGS";
+			debug_tag_buffer << "-----------------\n";
+		}
+
 		// cycle through the different sets that this is adding tags for
 		for(uint64_t tags_index = 0; tags_index < tags.size(); tags_index++)
 		{
 			uint64_t set_index = tags[tags_index]; // get the set number
 			uint64_t tag_buffer_set = set_index % NUM_TAG_SETS;
+			
+			if(DEBUG_COMBO_TAG)
+			{
+				debug_tag_buffer << "added tag for set index " << set_index << "\n";
+				debug_tag_buffer << "this mapped to tag buffer sex " << tag_buffer_set << "\n";
+			}	   
 			
 			// if we're out of room, we have to overwrite something
 			if(tag_buffer[tag_buffer_set].size() >= NUM_TAG_WAYS)
@@ -85,6 +105,11 @@ namespace HybridSim {
 							oldest_ts = it->ts;
 							victim = it;
 						}
+					}
+
+					if(DEBUG_COMBO_TAG)
+					{
+						debug_tag_buffer << "selected victim tag with set index " << (*victim).set_index << "\n";
 					}
 					
 					// now replace the victim with the new stuff
@@ -148,6 +173,11 @@ namespace HybridSim {
 				}
 				else if(tagReplacement == tag_fifo)
 				{
+					if(DEBUG_COMBO_TAG)
+			                {
+						debug_tag_buffer << "selected victim tag with set index " << tag_buffer[tag_buffer_set].front().set_index << "\n";
+					}
+
 					tag_buffer[tag_buffer_set].pop_front();
 
 					// add a new thing to the buffer
@@ -254,15 +284,31 @@ namespace HybridSim {
 				tag_buffer[tag_buffer_set].push_back(new_line);
 			}
 		}
+
+		if(DEBUG_COMBO_TAG)
+		{
+ 			debug_tag_buffer << "=================\n\n";
+		}
 	}
 
 	bool TagBuffer::haveTags(uint64_t set_index)
 	{
 		uint64_t tag_buffer_set = 0;
+		if(DEBUG_COMBO_TAG)
+		{
+			debug_tag_buffer << "CHECKING FOR TAGS";
+			debug_tag_buffer << "-----------------\n";
+		}
 		// fully associative
 		if(NUM_TAG_WAYS != 0)
 		{										
 			tag_buffer_set = set_index % NUM_TAG_SETS;
+		}
+
+		if(DEBUG_COMBO_TAG)
+		{
+			debug_tag_buffer << "looking for tag with set index " << set_index << "\n";
+			debug_tag_buffer << "this mapped to tag buffer set " << tag_buffer_set << "\n";
 		}
 			
 		// search the buffer for this set's tags
@@ -270,10 +316,21 @@ namespace HybridSim {
 		{
 			if((*it).set_index == set_index)
 			{	
+				if(DEBUG_COMBO_TAG)
+				{
+					debug_tag_buffer << "got a HIT!!! \n";
+					debug_tag_buffer << "================\n\n";
+				}
+
 				// TODO: Not sure if this is going to work, need to check it
 				(*it).used = true;
 				return true;
 			}
+		}
+		if(DEBUG_COMBO_TAG)
+		{
+			debug_tag_buffer << "big ole MISS... \n";
+			debug_tag_buffer << "================\n\n";
 		}
 		return false;
 	}

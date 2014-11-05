@@ -57,7 +57,8 @@ namespace HybridSim
 		// making this a vector of sets
 		// a tag line represents the storage of an entire DRAM buffer set's tags
 		// the 
-		unordered_map<uint64_t, list<tag_line> > tag_buffer;		
+		unordered_map<uint64_t, list<tag_line> > tag_buffer;
+		ofstream debug_tag_buffer;
 	};
 }
 

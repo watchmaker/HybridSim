@@ -241,7 +241,7 @@ namespace HybridSim {
 				cerr << "ERROR: HybridSim debug_set_address file failed to open.\n";
 				abort();
 			}
-		}
+		}	
 	}
 
 	HybridSystem::~HybridSystem()
