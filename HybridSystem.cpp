@@ -93,6 +93,10 @@ namespace HybridSim {
 		back->RegisterCallbacks(read_cb, write_cb, NULL);
 
 		decoder = AddressDecode();
+		if(DEBUG_COMBO_TAG)
+		{
+			tbuff.initializeSetTracking();
+		}
 
 		// Need to check the queue when we start.
 		check_queue = true;

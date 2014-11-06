@@ -46,7 +46,10 @@ namespace HybridSim
 		// just making it all public for now
 	public:
 		TagBuffer();
-		
+
+		// just to set up the vector that we use to track the sets that are used		
+		void initializeSetTracking();
+
 		// just to keep the cycle count valid
 		void update();
 

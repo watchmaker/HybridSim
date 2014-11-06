@@ -46,8 +46,12 @@ namespace HybridSim {
 				cerr << "ERROR: HybridSim debug_tag_buffer file failed to open.\n";
 				abort();
 			}
-			sets_accessed = vector<uint64_t>(NUM_TAG_SETS, 0);
 		}
+	}
+
+	void TagBuffer::initializeSetTracking()
+	{
+		sets_accessed = vector<uint64_t>(NUM_TAG_SETS, 0);
 	}
 
 	// right now this just steps to keep the clock cycle count accurate for 
