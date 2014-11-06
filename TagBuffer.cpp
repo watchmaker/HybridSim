@@ -46,6 +46,7 @@ namespace HybridSim {
 				cerr << "ERROR: HybridSim debug_tag_buffer file failed to open.\n";
 				abort();
 			}
+			sets_accessed = vector<uint64_t>(NUM_TAG_SETS, 0);
 		}
 	}
 
@@ -71,12 +72,13 @@ namespace HybridSim {
 		for(uint64_t tags_index = 0; tags_index < tags.size(); tags_index++)
 		{
 			uint64_t set_index = tags[tags_index]; // get the set number
-			uint64_t tag_buffer_set = set_index % NUM_TAG_SETS;
+			uint64_t tag_buffer_set = (set_index / NVDSim::NUM_PACKAGES) % NUM_TAG_SETS;
 			
 			if(DEBUG_COMBO_TAG)
 			{
 				debug_tag_buffer << "added tag for set index " << set_index << "\n";
-				debug_tag_buffer << "this mapped to tag buffer sex " << tag_buffer_set << "\n";
+				debug_tag_buffer << "this mapped to tag buffer set " << tag_buffer_set << "\n";
+				sets_accessed[tag_buffer_set] = sets_accessed[tag_buffer_set] + 1;
 			}	   
 			
 			// if we're out of room, we have to overwrite something
@@ -302,7 +304,7 @@ namespace HybridSim {
 		// fully associative
 		if(NUM_TAG_WAYS != 0)
 		{										
-			tag_buffer_set = set_index % NUM_TAG_SETS;
+			tag_buffer_set = (set_index / NVDSim::NUM_PACKAGES) % NUM_TAG_SETS;
 		}
 
 		if(DEBUG_COMBO_TAG)
@@ -333,6 +335,16 @@ namespace HybridSim {
 			debug_tag_buffer << "================\n\n";
 		}
 		return false;
+	}
+	
+	void TagBuffer::printBufferUsage()
+	{
+		debug_tag_buffer << "********************************************\n";
+		debug_tag_buffer << ">>>>>>> Final Tag Set Usage Counts <<<<<<<<\n";
+		for(uint64_t j = 0; j < NUM_TAG_SETS; j++)
+		{
+			debug_tag_buffer << "Set " << j << " : " << sets_accessed[j] << "\n";
+		}
 	}
 
 } // Namespace HybridSim

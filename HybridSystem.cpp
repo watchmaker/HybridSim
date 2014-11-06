@@ -2229,6 +2229,11 @@ namespace HybridSim {
 		
 			// Tell NVDIMM to print logs now
 			llcache->saveStats();
+
+			if(DEBUG_COMBO_TAG)
+			{
+				tbuff.printBufferUsage();
+			}
 		}
 	}
 
