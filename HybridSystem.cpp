@@ -552,13 +552,30 @@ namespace HybridSim {
 		// accounts for the accesses that are lost because they are either used for tags or can't be used
 		uint64_t waste_piece = (((set_index / NVDSim::NUM_PACKAGES) / SETS_PER_LINE) + 1) * (TAG_OFFSET + WASTE_OFFSET);
 
-		uint64_t channel_piece = set_index % NVDSim::NUM_PACKAGES;
-		uint64_t rank_piece = (set_index / NVDSim::NUM_PACKAGES * SETS_PER_LINE) % NVDSim::DIES_PER_PACKAGE;
-		uint64_t bank_piece = (set_index / (NVDSim::NUM_PACKAGES * NVDSim::DIES_PER_PACKAGE * SETS_PER_LINE)) % NVDSim::PLANES_PER_DIE;
-		uint64_t row_piece =  (set_index / (NVDSim::NUM_PACKAGES * NVDSim::DIES_PER_PACKAGE * NVDSim::PLANES_PER_DIE * SETS_PER_LINE)) % NVDSim::VIRTUAL_BLOCKS_PER_PLANE;
-		uint64_t this_offset_amount = (TAG_OFFSET + WASTE_OFFSET) * NUM_ROWS;
-		uint64_t next_address = (channel_piece + (rank_piece * NVDSim::NUM_PACKAGES) + (bank_piece * (NVDSim::NUM_PACKAGES * NVDSim::DIES_PER_PACKAGE)) + (row_piece * (NVDSim::NUM_PACKAGES * NVDSim::DIES_PER_PACKAGE * NVDSim::PLANES_PER_DIE)) + this_offset_amount + (i * NUM_ROWS) + (((set_index / (NVDSim::NUM_PACKAGES)) % SETS_PER_LINE)*SET_SIZE * NUM_ROWS)) * NVDSim::NV_PAGE_SIZE;
-
+		uint64_t channel_piece = 0;
+		uint64_t rank_piece = 0;
+		uint64_t bank_piece = 0;
+		uint64_t row_piece =  0;
+		uint64_t this_offset_amount = 0;
+		uint64_t next_address = 0;
+		if(ENABLE_SET_CHANNEL_INTERLEAVE)
+		{
+			channel_piece = set_index % NVDSim::NUM_PACKAGES;
+			rank_piece = (set_index / (NVDSim::NUM_PACKAGES * SETS_PER_LINE)) % NVDSim::DIES_PER_PACKAGE;
+			bank_piece = (set_index / (NVDSim::NUM_PACKAGES * NVDSim::DIES_PER_PACKAGE * SETS_PER_LINE)) % NVDSim::PLANES_PER_DIE;
+			row_piece =  (set_index / (NVDSim::NUM_PACKAGES * NVDSim::DIES_PER_PACKAGE * NVDSim::PLANES_PER_DIE * SETS_PER_LINE)) % NVDSim::VIRTUAL_BLOCKS_PER_PLANE;
+			this_offset_amount = (TAG_OFFSET + WASTE_OFFSET) * NUM_ROWS;
+			next_address = (channel_piece + (rank_piece * NVDSim::NUM_PACKAGES) + (bank_piece * (NVDSim::NUM_PACKAGES * NVDSim::DIES_PER_PACKAGE)) + (row_piece * (NVDSim::NUM_PACKAGES * NVDSim::DIES_PER_PACKAGE * NVDSim::PLANES_PER_DIE)) + this_offset_amount + (i * NUM_ROWS) + (((set_index / (NVDSim::NUM_PACKAGES)) % SETS_PER_LINE)*SET_SIZE * NUM_ROWS)) * NVDSim::NV_PAGE_SIZE;
+		}
+		else
+		{
+			channel_piece = (set_index / SETS_PER_LINE) % NVDSim::NUM_PACKAGES;
+			rank_piece = (set_index / (NVDSim::NUM_PACKAGES * SETS_PER_LINE)) % NVDSim::DIES_PER_PACKAGE;
+			bank_piece = (set_index / (NVDSim::NUM_PACKAGES * NVDSim::DIES_PER_PACKAGE * SETS_PER_LINE)) % NVDSim::PLANES_PER_DIE;
+			row_piece =  (set_index / (NVDSim::NUM_PACKAGES * NVDSim::DIES_PER_PACKAGE * NVDSim::PLANES_PER_DIE * SETS_PER_LINE)) % NVDSim::VIRTUAL_BLOCKS_PER_PLANE;
+			this_offset_amount = (TAG_OFFSET + WASTE_OFFSET) * NUM_ROWS;
+			next_address = (channel_piece + (rank_piece * NVDSim::NUM_PACKAGES) + (bank_piece * (NVDSim::NUM_PACKAGES * NVDSim::DIES_PER_PACKAGE)) + (row_piece * (NVDSim::NUM_PACKAGES * NVDSim::DIES_PER_PACKAGE * NVDSim::PLANES_PER_DIE)) + this_offset_amount + (i * NUM_ROWS) + (((set_index / (NVDSim::NUM_PACKAGES)) % SETS_PER_LINE)*SET_SIZE * NUM_ROWS)) * NVDSim::NV_PAGE_SIZE;
+		}
 		// commented for now for future study
 		/*
 		// accounts for the number of accesses to add in order to space adjacent sets out across different channels
@@ -852,8 +869,17 @@ namespace HybridSim {
 	uint64_t HybridSystem::getComboTagAddr(uint64_t set_index, uint64_t data_address)
 	{
 		AddressSet address_stuff = decoder.getDecode(data_address);
-				
-		uint64_t set_index_mod = (set_index / NVDSim::NUM_PACKAGES) % SETS_PER_LINE;
+		
+		uint64_t set_index_mod = 0;
+		if(ENABLE_SET_CHANNEL_INTERLEAVE)
+		{
+			set_index_mod = (set_index / NVDSim::NUM_PACKAGES) % SETS_PER_LINE;
+		}
+		else
+		{
+			set_index_mod = set_index % SETS_PER_LINE;
+		}
+			
 		uint64_t set_index_pos = 0;
 		if(set_index_mod < (SETS_PER_TAG_GROUP + EXTRA_SETS_FOR_ZERO_GROUP))
 		{

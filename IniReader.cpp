@@ -75,6 +75,7 @@ uint64_t NUM_TAG_WAYS;
 uint64_t NUM_TAG_SETS;
 uint64_t SETS_PER_LINE;
 uint64_t SETS_PER_TAG_GROUP;
+uint64_t ENABLE_SET_CHANNEL_INTERLEAVE;
 string TAG_REPLACEMENT;
 TagReplacement tagReplacement;
 
@@ -229,6 +230,8 @@ string NVDIMM_SAVE_FILE = "none";
 				convert_uint64_t(SETS_PER_LINE, value, key);
 			else if (key.compare("SETS_PER_TAG_GROUP") == 0)
 				convert_uint64_t(SETS_PER_TAG_GROUP, value, key);
+			else if (key.compare("ENABLE_SET_CHANNEL_INTERLEAVE") == 0)
+				convert_uint64_t(ENABLE_SET_CHANNEL_INTERLEAVE, value, key);
 			else if (key.compare("TAG_REPLACEMENT") == 0)
 			{
 			        if(value.compare("LRU") == 0)

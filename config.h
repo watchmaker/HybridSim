@@ -209,6 +209,7 @@ extern uint64_t NUM_TAG_WAYS;
 extern uint64_t NUM_TAG_SETS;
 extern uint64_t SETS_PER_LINE;
 extern uint64_t SETS_PER_TAG_GROUP;
+extern uint64_t ENABLE_SET_CHANNEL_INTERLEAVE;
 #define EXTRA_SETS_FOR_ZERO_GROUP (SETS_PER_LINE % SETS_PER_TAG_GROUP)
 // number of accesses at the front of a row that are reserved for tags
 #define TAG_OFFSET ((SETS_PER_LINE - EXTRA_SETS_FOR_ZERO_GROUP) / SETS_PER_TAG_GROUP) 
