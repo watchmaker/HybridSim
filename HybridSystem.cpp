@@ -974,6 +974,10 @@ namespace HybridSim {
 		{
 			// Compute the set number and tag
 			uint64_t set_index = SET_INDEX(addr);
+			if(ENABLE_LOGGER)
+			{
+				log.tag_buffer_access();
+			}
 
 			// first see if we alrady have the tags for this set
 			if(tbuff.haveTags(set_index))

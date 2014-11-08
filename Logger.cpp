@@ -59,6 +59,7 @@ namespace HybridSim
 		num_write_misses = 0;
 		num_write_hits = 0;
 
+		num_tag_accesses = 0;
 		num_tag_hits = 0;
 
 		sum_latency = 0;
@@ -122,6 +123,7 @@ namespace HybridSim
 		    {
 			reuse_histogram[i] = 0;
 		    }
+		    reuse_average = 0;
 		}
 
 		// Resetting the epoch state will initialize it.
@@ -483,6 +485,12 @@ namespace HybridSim
 		cur_num_write_misses += 1;
 	}
 
+	void Logger::tag_buffer_access()
+	{
+		num_tag_accesses += 1;
+		cur_num_tag_accesses += 1;
+	}
+
 	void Logger::tag_buffer_hit()
 	{
 		num_tag_hits += 1;
@@ -593,6 +601,7 @@ namespace HybridSim
 			bin = REUSE_MAX;
 		uint64_t bin_cnt = reuse_histogram[bin];
 		reuse_histogram[bin] = bin_cnt + 1;
+		reuse_average += cycles;
 	}
 
 	double Logger::divide(uint64_t a, uint64_t b)
@@ -694,8 +703,9 @@ namespace HybridSim
 			savefile << "miss rate: " << this->divide(cur_num_misses, cur_num_accesses) << "\n";
 			if(assocVersion == combo_tag)
 			{
+				savefile << "tag accesses: " << cur_num_tag_accesses << "\n";
 				savefile << "tag hits: " << cur_num_tag_hits << "\n";
-				savefile << "tag hit rate: " << this->divide(cur_num_tag_hits, cur_num_accesses) << "\n";
+				savefile << "tag hit rate: " << this->divide(cur_num_tag_hits, cur_num_tag_accesses) << "\n";
 			}
 			savefile << "average latency: " << this->latency_cycles(cur_sum_latency, cur_num_accesses) << " cycles";
 			savefile << " (" << this->latency_us(cur_sum_latency, cur_num_accesses) << " us)\n";
@@ -798,6 +808,7 @@ namespace HybridSim
 		cur_num_write_misses = 0;
 		cur_num_write_hits = 0;
 
+		cur_num_tag_accesses = 0;
 		cur_num_tag_hits = 0;
 
 		cur_sum_latency = 0;
@@ -846,8 +857,9 @@ namespace HybridSim
 		savefile << "miss rate: " << miss_rate() << "\n";
 		if(assocVersion == combo_tag)
 		{
+			savefile << "tag accesses: " << num_tag_accesses << "\n";
 			savefile << "tag hits: " << num_tag_hits << "\n";
-			savefile << "tag hit rate: " << this->divide(num_tag_hits, num_accesses) << "\n";
+			savefile << "tag hit rate: " << this->divide(num_tag_hits, num_tag_accesses) << "\n";
 		}
 		savefile << "average latency: " << this->latency_cycles(sum_latency, num_accesses) << " cycles";
 		savefile << " (" << this->latency_us(sum_latency, num_accesses) << " us)\n";
@@ -961,6 +973,7 @@ namespace HybridSim
 		}
 
 		savefile << "================================================================================\n\n";
+		savefile << "Reuse Average: " << this->divide(reuse_average, num_accesses) << "\n";
 		savefile << "Reuse Histogram:\n\n";
 
 		savefile << "REUSE_BIN: " << REUSE_BIN << "\n";

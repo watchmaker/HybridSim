@@ -62,6 +62,7 @@ namespace HybridSim
 		uint64_t num_write_misses;
 		uint64_t num_write_hits;
 
+		uint64_t num_tag_accesses;
 		uint64_t num_tag_hits;
 		
 		uint64_t sum_latency;
@@ -105,6 +106,7 @@ namespace HybridSim
 		uint64_t cur_num_write_misses;
 		uint64_t cur_num_write_hits;
 
+		uint64_t cur_num_tag_accesses;
 		uint64_t cur_num_tag_hits;
 		
 		uint64_t cur_sum_latency;
@@ -172,6 +174,7 @@ namespace HybridSim
 		unordered_map<uint64_t, uint64_t> set_accesses;
 		unordered_map<uint64_t, uint64_t> last_access;
 		unordered_map<uint64_t, uint64_t> reuse_histogram; // reuse distance
+		uint64_t reuse_average;
 		
 		unordered_map<uint64_t, uint64_t> victim_requested;  // victim address - time from eviction
 		list<MissedPageEntry> victim_page_list;
@@ -247,7 +250,8 @@ namespace HybridSim
 		void read_miss();
 		void write_hit();
 		void write_miss();
-
+		
+		void tag_buffer_access();
 		void tag_buffer_hit();
 
 		double compute_running_average(double old_average, double num_values, double new_value);
