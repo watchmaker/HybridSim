@@ -47,6 +47,8 @@ namespace HybridSim
 	public:
 		TagBuffer();
 
+		void initializeTagBuffer();
+
 		// just to set up the vector that we use to track the sets that are used		
 		void initializeSetTracking();
 
