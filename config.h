@@ -352,6 +352,7 @@ class Pending
 	uint64_t victim_tag;
 	bool victim_valid;
 	bool callback_sent;
+	bool tag_buffer_miss; // this is used to tell use when to prefetch tags
 	TransactionType type; // DATA_READ or DATA_WRITE
 
 	Pending() : op(VICTIM_READ), back_addr(0), cache_addr(0), victim_tag(0), type(DATA_READ) {};
