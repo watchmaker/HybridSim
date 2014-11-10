@@ -76,14 +76,14 @@ namespace HybridSim {
 			debug_tag_buffer << "-----------------\n";
 		}
 
-		cout << "\nadding tags \n==========\n";
+		//cout << "\nadding tags \n==========\n";
 		// cycle through the different sets that this is adding tags for
 		for(uint64_t tags_index = 0; tags_index < tags.size(); tags_index++)
 		{
 			uint64_t set_index = tags[tags_index]; // get the set number
 			uint64_t tag_buffer_set;
 						
-			cout << "set index " << set_index << "\n";
+			//cout << "set index " << set_index << "\n";
 
 			if(ENABLE_SET_CHANNEL_INTERLEAVE)
 			{
@@ -402,7 +402,7 @@ namespace HybridSim {
 			tag_buffer_set = (set_index) % NUM_TAG_SETS;
 		}
 		
-		cout << "\nlooking for tag " << set_index << "\n";
+		//cout << "\nlooking for tag " << set_index << "\n";
 
 		if(DEBUG_COMBO_TAG)
 		{
