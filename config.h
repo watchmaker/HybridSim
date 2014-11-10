@@ -210,6 +210,7 @@ extern uint64_t NUM_TAG_SETS;
 extern uint64_t SETS_PER_LINE;
 extern uint64_t SETS_PER_TAG_GROUP;
 extern uint64_t ENABLE_SET_CHANNEL_INTERLEAVE;
+extern uint64_t ENABLE_TAG_PREFETCH;
 #define EXTRA_SETS_FOR_ZERO_GROUP (SETS_PER_LINE % SETS_PER_TAG_GROUP)
 // number of accesses at the front of a row that are reserved for tags
 #define TAG_OFFSET ((SETS_PER_LINE - EXTRA_SETS_FOR_ZERO_GROUP) / SETS_PER_TAG_GROUP) 
@@ -226,7 +227,8 @@ enum TagReplacement
 	tag_ru,
 	tag_fifo,
 	tag_random,
-	tag_mru
+	tag_mru,
+	tag_lrnu
 };
 extern string TAG_REPLACEMENT;
 extern TagReplacement tagReplacement; 
@@ -266,7 +268,6 @@ extern string HYBRIDSIM_SAVE_FILE;
 extern string NVDIMM_SAVE_FILE;
 
 // Macros derived from Ini settings.
-
 #define NUM_SETS (ACTUAL_CACHE_PAGES / SET_SIZE)
 #define PAGE_NUMBER(addr) (addr / PAGE_SIZE)
 #define PAGE_ADDRESS(addr) ((addr / PAGE_SIZE) * PAGE_SIZE)

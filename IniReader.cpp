@@ -76,6 +76,7 @@ uint64_t NUM_TAG_SETS;
 uint64_t SETS_PER_LINE;
 uint64_t SETS_PER_TAG_GROUP;
 uint64_t ENABLE_SET_CHANNEL_INTERLEAVE;
+uint64_t ENABLE_TAG_PREFETCH;
 string TAG_REPLACEMENT;
 TagReplacement tagReplacement;
 
@@ -232,6 +233,8 @@ string NVDIMM_SAVE_FILE = "none";
 				convert_uint64_t(SETS_PER_TAG_GROUP, value, key);
 			else if (key.compare("ENABLE_SET_CHANNEL_INTERLEAVE") == 0)
 				convert_uint64_t(ENABLE_SET_CHANNEL_INTERLEAVE, value, key);
+			else if (key.compare("ENABLE_TAG_PREFETCH") == 0)
+				convert_uint64_t(ENABLE_TAG_PREFETCH, value, key);
 			else if (key.compare("TAG_REPLACEMENT") == 0)
 			{
 			        if(value.compare("LRU") == 0)
@@ -253,6 +256,10 @@ string NVDIMM_SAVE_FILE = "none";
 				else if(value.compare("MRU") == 0)
 				{
 					tagReplacement = tag_mru;
+				}
+				else if(value.compare("LRNU") == 0)
+				{
+					tagReplacement = tag_lrnu;
 				}
 				else
 				{

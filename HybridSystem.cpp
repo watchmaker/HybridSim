@@ -585,8 +585,6 @@ namespace HybridSim {
 		if(DEBUG_COMBO_TAG)
 		{
 			cerr << "Combo Data Address Calculation: \n";
-			//cerr << "set piece " << set_piece << "\n";
-			//cerr << "waste piece " << waste_piece << "\n";
 			cerr << "set index " << set_index << "\n";
 			cerr << "Tag offset " << TAG_OFFSET << "\n";
 			cerr << "Waste offset " << WASTE_OFFSET << "\n";
@@ -1481,7 +1479,7 @@ namespace HybridSim {
 			}
 			else
 			{
-				uint64_t set_index_mod = (set_index / NVDSim::NUM_PACKAGES) % SETS_PER_LINE;
+				uint64_t set_index_mod = (set_index) % SETS_PER_LINE;
 				uint64_t set_index_start = 0;
 				if(set_index_mod < (SETS_PER_TAG_GROUP + EXTRA_SETS_FOR_ZERO_GROUP))
 				{

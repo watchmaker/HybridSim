@@ -80,7 +80,15 @@ namespace HybridSim {
 		for(uint64_t tags_index = 0; tags_index < tags.size(); tags_index++)
 		{
 			uint64_t set_index = tags[tags_index]; // get the set number
-			uint64_t tag_buffer_set = (set_index / NVDSim::NUM_PACKAGES) % NUM_TAG_SETS;
+			uint64_t tag_buffer_set;
+			if(ENABLE_SET_CHANNEL_INTERLEAVE)
+			{
+				tag_buffer_set = (set_index / NVDSim::NUM_PACKAGES) % NUM_TAG_SETS;
+			}
+			else
+			{
+				tag_buffer_set = (set_index) % NUM_TAG_SETS;
+			}
 			
 			if(DEBUG_COMBO_TAG)
 			{
@@ -88,8 +96,6 @@ namespace HybridSim {
 				debug_tag_buffer << "this mapped to tag buffer set " << tag_buffer_set << "\n";
 				sets_accessed[tag_buffer_set] = sets_accessed[tag_buffer_set] + 1;
 			}
-			//cout << "size of set-1 " << tag_buffer[tag_buffer_set-1].size() << "\n";
-			//cout << "size of set+1 " << tag_buffer[tag_buffer_set+1].size() << "\n";
 
 			// if we have an entry for this tag set
 			if(tag_buffer.find(tag_buffer_set) != tag_buffer.end())
@@ -135,6 +141,45 @@ namespace HybridSim {
 						(*victim).ts = currentClockCycle;					
 						
 					}
+					// uses a fifo like heuristic to evict things that haven't been used, this should give plenty of time for things to be used
+					// the queue acts like a timer, but the used tags should be spared for a while
+					else if(tagReplacement == tag_lrnu)
+					{
+						// loop through the set looking for something to evict
+						bool done = false;
+						while(!done)
+						{
+							// we always pop
+							tag_line cur_line = tag_buffer[tag_buffer_set].front();
+							tag_buffer[tag_buffer_set].pop_front();
+
+							// if the tag has been used, mark it as unused and push it back onto the list
+							if(cur_line.used == true)
+							{
+								cur_line.used = false;
+								tag_buffer[tag_buffer_set].push_back(cur_line);
+								continue;
+							}
+						
+							// we found something that wasn't used so just don't add it back
+							// add a new thing to the buffer instead
+							tag_line new_line = tag_line();
+							new_line.set_index = set_index;
+							new_line.valid = true;
+							new_line.used = false;
+							new_line.prefetched = prefetched;
+							new_line.ts = currentClockCycle;
+							
+							tag_buffer[tag_buffer_set].push_back(new_line);
+							
+							// we're done here
+							done = true;
+
+							// a possible variation on this might be to use random replacement if everything had been used instead of just
+							// evicting the oldest thing (that might actually be the most valuable)
+						}
+					}
+					// recently used, assumes that things that have been used won't be used again and kicks them out
 					else if(tagReplacement == tag_ru)
 					{
 						// search the tag buffer for anything that has been used to evict
@@ -343,10 +388,14 @@ namespace HybridSim {
 			debug_tag_buffer << "CHECKING FOR TAGS";
 			debug_tag_buffer << "-----------------\n";
 		}
-		// fully associative
-		if(NUM_TAG_WAYS != 0)
-		{										
+		
+		if(ENABLE_SET_CHANNEL_INTERLEAVE)
+		{
 			tag_buffer_set = (set_index / NVDSim::NUM_PACKAGES) % NUM_TAG_SETS;
+		}
+		else
+		{
+			tag_buffer_set = (set_index) % NUM_TAG_SETS;
 		}
 
 		if(DEBUG_COMBO_TAG)
@@ -368,6 +417,8 @@ namespace HybridSim {
 
 				// TODO: Not sure if this is going to work, need to check it
 				(*it).used = true;
+				// update the timestamp (not sure if this is the right way to go about this)
+				(*it).ts = currentClockCycle;
 				return true;
 			}
 		}
@@ -387,6 +438,8 @@ namespace HybridSim {
 		{
 			debug_tag_buffer << "Set " << j << " : " << sets_accessed[j] << "\n";
 		}
+		debug_tag_buffer.flush();
+		debug_tag_buffer.close();
 	}
 
 } // Namespace HybridSim
