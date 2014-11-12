@@ -67,44 +67,54 @@ AddressSet AddressDecode::getDecode(uint64_t addr)
 		physicalAddress = addr >> colOffset;
 		
 		tempA = physicalAddress;
-		physicalAddress = physicalAddress >> colBitWidth;
-		tempB = physicalAddress << colBitWidth;
-		decoded_addr.column = tempA ^ tempB;
-		
-		tempA = physicalAddress;
-		physicalAddress = physicalAddress >> rowBitWidth;
-		tempB = physicalAddress << rowBitWidth;
-		decoded_addr.row = tempA ^ tempB;
-		
-		tempA = physicalAddress;
-		physicalAddress = physicalAddress >> bankBitWidth;
-		tempB = physicalAddress << bankBitWidth;
-		decoded_addr.bank = tempA ^ tempB;
-		
+		physicalAddress = physicalAddress >> channelBitWidth;
+		tempB = physicalAddress << channelBitWidth;
+		decoded_addr.channel = tempA ^ tempB;
+
 		tempA = physicalAddress;
 		physicalAddress = physicalAddress >> rankBitWidth;
 		tempB = physicalAddress << rankBitWidth;
 		decoded_addr.rank = tempA ^ tempB;
-				
+
 		tempA = physicalAddress;
-		physicalAddress = physicalAddress >> channelBitWidth;
-		tempB = physicalAddress << channelBitWidth;
-		decoded_addr.channel = tempA ^ tempB;
+		physicalAddress = physicalAddress >> bankBitWidth;
+		tempB = physicalAddress << bankBitWidth;
+		decoded_addr.bank = tempA ^ tempB;
+
+		tempA = physicalAddress;
+		physicalAddress = physicalAddress >> rowBitWidth;
+		tempB = physicalAddress << rowBitWidth;
+		decoded_addr.row = tempA ^ tempB;
+
+		tempA = physicalAddress;
+		physicalAddress = physicalAddress >> colBitWidth;
+		tempB = physicalAddress << colBitWidth;
+		decoded_addr.column = tempA ^ tempB;	
 	}
 	else
 	{
 		physicalAddress = addr;
 
 		physicalAddress /= NVDSim::NV_PAGE_SIZE;
-		decoded_addr.column = physicalAddress % NVDSim::PAGES_PER_BLOCK;
-		physicalAddress /= NVDSim::PAGES_PER_BLOCK;
-		decoded_addr.row = physicalAddress % NVDSim::BLOCKS_PER_PLANE;
-		physicalAddress /= NVDSim::BLOCKS_PER_PLANE;
-		decoded_addr.bank = physicalAddress % NVDSim::PLANES_PER_DIE;
-		physicalAddress /= NVDSim::PLANES_PER_DIE;
+		decoded_addr.channel = physicalAddress % NVDSim::NUM_PACKAGES;
+		physicalAddress /= NVDSim::NUM_PACKAGES;
 		decoded_addr.rank = physicalAddress % NVDSim::DIES_PER_PACKAGE;
 		physicalAddress /= NVDSim::DIES_PER_PACKAGE;
-		decoded_addr.channel = physicalAddress % NVDSim::NUM_PACKAGES;
+		decoded_addr.bank = physicalAddress % NVDSim::PLANES_PER_DIE;
+		physicalAddress /= NVDSim::PLANES_PER_DIE;
+		decoded_addr.row = physicalAddress % NVDSim::BLOCKS_PER_PLANE;
+		physicalAddress /= NVDSim::BLOCKS_PER_PLANE;
+		decoded_addr.column = physicalAddress % NVDSim::PAGES_PER_BLOCK;		
+	}
+
+	if(DEBUG_COMBO_TAG)
+	{
+		cerr << "Address decoded: " << addr << "\n";
+		cerr << "channel: " << decoded_addr.channel << "\n";
+		cerr << "rank: " << decoded_addr.rank << "\n";
+		cerr << "bank: " << decoded_addr.bank << "\n";
+		cerr << "row: " << decoded_addr.row << "\n";
+		cerr << "col: " << decoded_addr.column << "\n";
 	}
 	
 	return decoded_addr;	

@@ -91,6 +91,7 @@ namespace HybridSim {
 		DRAMSim::TransactionCompleteCB *read_cb = new dramsim_callback_t(this, &HybridSystem::BackReadCallback);
 		DRAMSim::TransactionCompleteCB *write_cb = new dramsim_callback_t(this, &HybridSystem::BackWriteCallback);
 		back->RegisterCallbacks(read_cb, write_cb, NULL);
+		back->setCPUClockSpeed(CYCLES_PER_SECOND);
 
 		decoder = AddressDecode();
 		if(DEBUG_COMBO_TAG)
