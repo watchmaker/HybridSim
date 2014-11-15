@@ -384,7 +384,13 @@ namespace HybridSim {
 		}
 	}
 
-	bool TagBuffer::haveTags(uint64_t set_index)
+	// being lazy here and returning a code so we can know if this was a prefetch hit or not
+	// this is just so I don't have to pass the logger over to this other thing
+	// return codes:
+	// 0 : miss
+	// 1 : hit
+	// 2 : prefetch hit
+	uint64_t TagBuffer::haveTags(uint64_t set_index)
 	{
 		uint64_t tag_buffer_set = 0;
 		if(DEBUG_COMBO_TAG)
@@ -425,7 +431,10 @@ namespace HybridSim {
 				(*it).used = true;
 				// update the timestamp (not sure if this is the right way to go about this)
 				(*it).ts = currentClockCycle;
-				return true;
+				if((*it).prefetched == true)
+					return 2;
+				else
+					return 1;
 			}
 		}
 		if(DEBUG_COMBO_TAG)
@@ -433,7 +442,7 @@ namespace HybridSim {
 			debug_tag_buffer << "big ole MISS... \n";
 			debug_tag_buffer << "================\n\n";
 		}
-		return false;
+		return 0;
 	}
 	
 	void TagBuffer::printBufferUsage()

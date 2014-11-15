@@ -89,10 +89,12 @@ namespace HybridSim
 		uint64_t getComboDataAddr(uint64_t set_index, uint64_t i);
 
 		// PaulMod: this enables different tag lookup implementations by allowing us to check for a hit either before and after accessing the main memory
-		void HitCheck(Transaction &trans);
+		void HitCheck(Transaction &trans, bool tag_miss);
 
 		uint64_t getComboTagAddr(uint64_t set_index, uint64_t data_address);
 		void ProcessTransaction(Transaction &trans);
+
+		void IssueTagPrefetch(uint64_t set_index, uint64_t data_address);
 
 		void AlreadyReadVictim(Pending p);
 		void VictimRead(Pending p);
@@ -167,6 +169,7 @@ namespace HybridSim
 		uint systemID;
 
 		NVDSim::NVDIMM *llcache;
+		NVDSim::NVDIMM *bbcache;
 
 		DRAMSim::MultiChannelMemorySystem *back;
 

@@ -64,6 +64,8 @@ namespace HybridSim
 
 		uint64_t num_tag_accesses;
 		uint64_t num_tag_hits;
+		uint64_t num_tag_prefetches;
+		uint64_t num_tag_prefetch_hits;
 		
 		uint64_t sum_latency;
 		uint64_t sum_read_latency;
@@ -108,6 +110,8 @@ namespace HybridSim
 
 		uint64_t cur_num_tag_accesses;
 		uint64_t cur_num_tag_hits;
+		uint64_t cur_num_tag_prefetches;
+		uint64_t cur_num_tag_prefetch_hits;
 		
 		uint64_t cur_sum_latency;
 		uint64_t cur_sum_read_latency;
@@ -253,6 +257,8 @@ namespace HybridSim
 		
 		void tag_buffer_access();
 		void tag_buffer_hit();
+		void tag_buffer_prefetch();
+		void tag_buffer_prefetch_hit();
 
 		double compute_running_average(double old_average, double num_values, double new_value);
 		void latency(uint64_t cycles);

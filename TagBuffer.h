@@ -57,7 +57,7 @@ namespace HybridSim
 
 		void addTags(vector<uint64_t> tags, bool prefetched);
 
-		bool haveTags(uint64_t set_index);
+		uint64_t haveTags(uint64_t set_index);
 
 		void printBufferUsage();
 		

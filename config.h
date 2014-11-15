@@ -71,6 +71,9 @@
 // needed for the combo tag associativity version
 #define DEBUG_COMBO_TAG 0
 
+// outputs the process of prefetching tags to stderr
+#define DEBUG_TAG_PREFETCH 0
+
 // Map the first CACHE_PAGES of the NVDIMM address space.
 // This is the initial state of the hybrid memory on boot.
 // This will be overridden if ENABLE_RESTORE is on in the ini file, so leaving this
@@ -211,6 +214,7 @@ extern uint64_t SETS_PER_LINE;
 extern uint64_t SETS_PER_TAG_GROUP;
 extern uint64_t ENABLE_SET_CHANNEL_INTERLEAVE;
 extern uint64_t ENABLE_TAG_PREFETCH;
+extern uint64_t TAG_PREFETCH_WINDOW;
 #define EXTRA_SETS_FOR_ZERO_GROUP (SETS_PER_LINE % SETS_PER_TAG_GROUP)
 // number of accesses at the front of a row that are reserved for tags
 #define TAG_OFFSET ((SETS_PER_LINE - EXTRA_SETS_FOR_ZERO_GROUP) / SETS_PER_TAG_GROUP) 
@@ -338,7 +342,8 @@ enum PendingOperation
 	CACHE_READ, // Perform a DRAM read to get data and return the final result.
 	CACHE_WRITE, // Perform a DRAM read to put data and return the final result.
 	TAG_READ, // Perform a DRAM read to get Tags instead of data
-	TAG_WRITE // Performa a DRAM write to update the Tags block for data
+	TAG_WRITE, // Performa a DRAM write to update the Tags block for data
+	TAG_PREFETCH // Perform a DRAM read to get Tags before they're requested
 };
 
 // Entries in the pending table.

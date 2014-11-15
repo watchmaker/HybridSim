@@ -91,7 +91,6 @@ namespace HybridSim {
 		DRAMSim::TransactionCompleteCB *read_cb = new dramsim_callback_t(this, &HybridSystem::BackReadCallback);
 		DRAMSim::TransactionCompleteCB *write_cb = new dramsim_callback_t(this, &HybridSystem::BackWriteCallback);
 		back->RegisterCallbacks(read_cb, write_cb, NULL);
-		back->setCPUClockSpeed(CYCLES_PER_SECOND);
 
 		decoder = AddressDecode();
 		if(DEBUG_COMBO_TAG)
@@ -288,16 +287,7 @@ namespace HybridSim {
 		bool back_idle = (back_queue.empty()) && (back_pending.empty());
 		bool cache_idle = (cache_queue.empty()) && (cache_pending.empty());
 		if (ENABLE_LOGGER)
-			log.access_update(trans_queue_size, idle, back_idle, cache_idle);
-
-
-		// See if there are any transactions ready to be processed.
-		if ((active_transaction_flag) && (delay_counter == 0))
-		{
-				ProcessTransaction(active_transaction);
-				active_transaction_flag = false;
-		}
-		
+			log.access_update(trans_queue_size, idle, back_idle, cache_idle);		
 
 
 		// Used to see if any work is done on this cycle.
@@ -350,6 +340,16 @@ namespace HybridSim {
 				// Skip to the next and do nothing else.
 				++it;
 			}
+		}
+
+		// See if there are any transactions ready to be processed.
+		// moved this to right after the active transaction is set because there were situations
+		// where we could have the pending state change between setting up a transaction and when it was
+		// actually processed, leading to pending conflicts
+		if ((active_transaction_flag) && (delay_counter == 0))
+		{
+				ProcessTransaction(active_transaction);
+				active_transaction_flag = false;
 		}
 
 		// If there is nothing to do, wait until a new transaction arrives or a pending set is released.
@@ -602,7 +602,7 @@ namespace HybridSim {
 	}
 
 	// This is only ever called once per transaction
-        void HybridSystem::HitCheck(Transaction &trans)
+        void HybridSystem::HitCheck(Transaction &trans, bool tag_miss)
 	{
 		// trans.address is the original address that we must use to callback.
 		// But for our processing, we must use an aligned address (which is aligned to a page in the NV address space).
@@ -738,6 +738,12 @@ namespace HybridSim {
 				else if(assocVersion == combo_tag)
 				{
 					CacheRead(trans.address, addr, cache_address, trans, false);
+
+					if(ENABLE_TAG_PREFETCH && tag_miss)
+					{
+						// issue the prefetches here, these should go on the queue after the actual data read
+						IssueTagPrefetch(set_index, *(set_address_list.begin()));
+					}
 				}
 				// if we're not doing a separate tag cache then we don't need to issue any reads here
 				// we already issued a read to get the data from the cache
@@ -860,6 +866,13 @@ namespace HybridSim {
 			{
 				VictimRead(p);
 			}
+
+			// try to read the other tags in parallel with the replacement, these tag lookups should be put
+			// in the cache queue after the line read so they shouldn't slow the replacement down
+			if(assocVersion == combo_tag && tag_miss && ENABLE_TAG_PREFETCH)
+			{
+				IssueTagPrefetch(set_index, *(set_address_list.begin()));
+			}
 		}
 	}
 
@@ -937,7 +950,7 @@ namespace HybridSim {
 
 		if(assocVersion == tag_tlb)				
 		{
-			HitCheck(trans);
+			HitCheck(trans, false);
 		}
 		// we're simulating storing the tags in dram, so we have to access dram first and then see if the tag is what we're looking for
 		// we have an associative cache and we're distributing the ways across channels
@@ -979,15 +992,19 @@ namespace HybridSim {
 			}
 
 			// first see if we alrady have the tags for this set
-			if(tbuff.haveTags(set_index))
+			uint64_t had_tags = tbuff.haveTags(set_index);
+			if(had_tags != 0)
 			{
 				// if we do have the tags then there's no need to issue a tag lookup to the cache
 				// so we just go directly to the check tags phase
 				if(ENABLE_LOGGER)
 				{
-					log.tag_buffer_hit();
+					if(had_tags == 2)
+						log.tag_buffer_prefetch_hit();
+					else
+						log.tag_buffer_hit();
 				}
-				HitCheck(trans);
+				HitCheck(trans, false);
 			}
 			else
 			{
@@ -1037,6 +1054,164 @@ namespace HybridSim {
 			contention_cache_line_lock(cache_address);
 			CacheRead(trans.address, addr, cache_address, trans, true);
 		}	
+	}
+
+	// ***************************************************************************
+	// COMBO TAG PREFETCH STUFF
+	// ***************************************************************************
+	void HybridSystem::IssueTagPrefetch(uint64_t set_index, uint64_t data_address)
+	{
+		if(DEBUG_TAG_PREFETCH)
+		{
+			cerr << "ISSUING PREFETCHES \n";
+			cerr << "prefetching for set index " << set_index << "\n";
+		}
+		// get the base address stuff
+		AddressSet address_stuff = decoder.getDecode(data_address);
+
+		// get the set index mod
+		uint64_t set_index_mod = 0;
+		if(ENABLE_SET_CHANNEL_INTERLEAVE)
+		{
+			// dividing by the number of channels spreads the sets out across the channels
+			set_index_mod = (set_index / NVDSim::NUM_PACKAGES) % SETS_PER_LINE;
+		}
+		else
+		{
+			set_index_mod = set_index % SETS_PER_LINE;
+		}
+		
+		// trying to align back to the starting set of each tag group
+		uint64_t set_index_pos = 0;
+		uint64_t temp_set = 0;
+		uint64_t set_index_align = 0;
+		uint64_t set_group_pos = 0;
+		if(set_index_mod < (SETS_PER_TAG_GROUP + EXTRA_SETS_FOR_ZERO_GROUP))
+		{
+			set_group_pos = (set_index_mod) % (SETS_PER_TAG_GROUP + EXTRA_SETS_FOR_ZERO_GROUP);
+			set_index_pos = (set_index_mod - EXTRA_SETS_FOR_ZERO_GROUP) % (SETS_PER_LINE / SETS_PER_TAG_GROUP);
+			set_index_align = set_index - set_group_pos;
+			temp_set = set_index_align + (SETS_PER_TAG_GROUP + EXTRA_SETS_FOR_ZERO_GROUP);
+		}
+		else
+		{
+			set_group_pos = (set_index_mod-EXTRA_SETS_FOR_ZERO_GROUP) % (SETS_PER_TAG_GROUP);
+			set_index_pos = set_index_mod % (SETS_PER_LINE / SETS_PER_TAG_GROUP);
+			set_index_align = set_index - set_group_pos;
+			temp_set = set_index_align + SETS_PER_TAG_GROUP;
+		}
+		
+		if(DEBUG_TAG_PREFETCH)
+		{
+			cerr << "set index mod was " << set_index_mod << "\n";
+			cerr << "set index position was " << set_index_pos << "\n";
+			cerr << "set index align was " << set_index_align << "\n";
+		}
+
+		uint64_t curr_set_addr = (address_stuff.channel + (address_stuff.rank * (NVDSim::NUM_PACKAGES)) + (address_stuff.bank * (NVDSim::NUM_PACKAGES * NVDSim::DIES_PER_PACKAGE)) + (address_stuff.row * (NVDSim::NUM_PACKAGES * NVDSim::DIES_PER_PACKAGE * NVDSim::PLANES_PER_DIE)) + (set_index_pos * NUM_ROWS)) * NVDSim::NV_PAGE_SIZE;
+		decoder.getDecode(curr_set_addr);
+
+		// allow for variable length prefetches
+		uint64_t index_max = 0;
+		if(TAG_PREFETCH_WINDOW == 0)
+		{
+			index_max = (SETS_PER_LINE / SETS_PER_TAG_GROUP);
+		}
+		else
+		{
+			index_max = set_index_pos+TAG_PREFETCH_WINDOW+1;
+		}
+
+		// only prefetch going forward
+		// set_index_pos should be tags that we already have
+		uint64_t temp_index_pos = set_index_pos+1;
+		uint64_t temp_chan = address_stuff.channel;
+		if(temp_index_pos >= ((SETS_PER_LINE-EXTRA_SETS_FOR_ZERO_GROUP) / SETS_PER_TAG_GROUP))
+		{
+			temp_index_pos = 0;
+			temp_chan = temp_chan+1;
+			// if we're at the last chan then just stop
+			// might want to add some looping stuff here later but lets see how we do
+			if(temp_chan >= NVDSim::NUM_PACKAGES)
+			{
+				return;
+			}
+		}
+	
+		for(uint64_t prefetch_index = set_index_pos+1; prefetch_index < index_max; prefetch_index++)
+		{		
+			uint64_t curr_tag_addr = (temp_chan + (address_stuff.rank * (NVDSim::NUM_PACKAGES)) + (address_stuff.bank * (NVDSim::NUM_PACKAGES * NVDSim::DIES_PER_PACKAGE)) + (address_stuff.row * (NVDSim::NUM_PACKAGES * NVDSim::DIES_PER_PACKAGE * NVDSim::PLANES_PER_DIE)) + (temp_index_pos * NUM_ROWS)) * NVDSim::NV_PAGE_SIZE;
+	
+			if(DEBUG_TAG_PREFETCH)
+			{
+				cerr << "prefetch number " << prefetch_index << "\n";
+				cerr << "prefetch set " << temp_set << "\n";
+				cerr << "addreess " << curr_tag_addr << "\n";
+			}
+			decoder.getDecode(curr_tag_addr);
+			
+			// make sure we're not already reading these tags
+			if(cache_pending.count(curr_tag_addr) == 0)
+			{
+				if(DEBUG_TAG_PREFETCH)
+				{
+					cerr << "Prefetch actually issued \n";
+					cerr << "prefetching tags from address " << curr_tag_addr << "\n";
+				}
+
+				if(ENABLE_LOGGER)
+				{
+					log.tag_buffer_prefetch();
+				}
+
+				// lock this cache page
+				contention_cache_line_lock(curr_tag_addr);
+				
+				// now add the transaction
+				Transaction t = Transaction(DATA_READ, curr_tag_addr, NULL);
+				cache_queue.push_back(t);
+				
+				// Add a record in the CACHE's pending table.
+				Pending p;
+				p.op = TAG_PREFETCH;
+				p.cache_addr = curr_tag_addr;
+				p.orig_addr = 0;
+				p.back_addr = temp_set; // use this to pass on the set index		
+				p.victim_tag = 0;
+				p.victim_valid = false;
+				p.callback_sent = false;
+				p.type = DATA_READ;			
+				assert(cache_pending.count(curr_tag_addr) == 0);
+				cache_pending[curr_tag_addr] = p;
+				
+				// Assertions for "this can't happen" situations.
+				assert(cache_pending.count(curr_tag_addr) != 0);	
+			}
+			temp_index_pos = temp_index_pos+1;
+			if(temp_index_pos >= (SETS_PER_LINE / SETS_PER_TAG_GROUP))
+			{
+				temp_index_pos = 0;
+				temp_chan = temp_chan+1;
+				// if we're at the last chan then just stop
+				// might want to add some looping stuff here later but lets see how we do
+				if(temp_chan >= NVDSim::NUM_PACKAGES)
+				{
+					break;
+				}
+			}
+			
+			// move the set index pointer forward so we're pointing at the next set of tags
+			uint64_t temp_pos_mod = prefetch_index % (SETS_PER_LINE / SETS_PER_TAG_GROUP);
+			// if we're at the end of a row's tag sets then we'll have a big tag set next
+			if(temp_pos_mod == 0)
+			{
+				temp_set = temp_set + (SETS_PER_TAG_GROUP + EXTRA_SETS_FOR_ZERO_GROUP);
+			}
+			else
+			{
+				temp_set = temp_set + SETS_PER_TAG_GROUP;
+			}
+		}
 	}
 
 	// this is a helper function that handles the case where we would have a victim read
@@ -1444,7 +1619,7 @@ namespace HybridSim {
 			Transaction t = Transaction(p.type, p.orig_addr, NULL);
             // Do not erase the page from the pending set yet because we're still working with it
 			contention_cache_line_unlock(p.cache_addr);
-			HitCheck(t);
+			HitCheck(t, false);
 		}
 		else if(assocVersion == combo_tag && !line_read && !p.callback_sent && p.op == TAG_READ)
 		{
@@ -1507,7 +1682,66 @@ namespace HybridSim {
 			Transaction t = Transaction(p.type, p.orig_addr, NULL);
             // Do not erase the page from the pending set yet because we're still working with it
 			contention_cache_line_unlock(p.cache_addr);
-			HitCheck(t);
+			HitCheck(t, true);
+		}
+		else if(assocVersion == combo_tag && !line_read && !p.callback_sent && p.op == TAG_PREFETCH)
+		{
+			uint64_t set_index = p.back_addr;
+			
+			if(ENABLE_SET_CHANNEL_INTERLEAVE)
+			{
+				uint64_t set_index_mod = (set_index / NVDSim::NUM_PACKAGES) % SETS_PER_LINE;
+				uint64_t set_index_start = 0;
+				if(set_index_mod < (SETS_PER_TAG_GROUP + EXTRA_SETS_FOR_ZERO_GROUP))
+				{
+					vector<uint64_t> tags = vector<uint64_t> (SETS_PER_TAG_GROUP + EXTRA_SETS_FOR_ZERO_GROUP, 0);
+					set_index_start = set_index - (set_index_mod * NVDSim::NUM_PACKAGES);
+					for(uint64_t i=0; i<(SETS_PER_TAG_GROUP + EXTRA_SETS_FOR_ZERO_GROUP); i++)
+					{
+						tags[i] = set_index_start+(i*NVDSim::NUM_PACKAGES);
+					}
+					tbuff.addTags(tags, true);					
+				}
+				else
+				{
+					vector<uint64_t> tags = vector<uint64_t> (SETS_PER_TAG_GROUP, 0);
+					set_index_start = set_index - (((set_index_mod-EXTRA_SETS_FOR_ZERO_GROUP) % SETS_PER_TAG_GROUP)  * NVDSim::NUM_PACKAGES);
+					for(uint64_t i=0; i<SETS_PER_TAG_GROUP; i++)
+					{
+						tags[i] = set_index_start+(i*NVDSim::NUM_PACKAGES);
+					}
+					tbuff.addTags(tags, true);						
+				}
+			}
+			else
+			{
+				uint64_t set_index_mod = (set_index) % SETS_PER_LINE;
+				uint64_t set_index_start = 0;
+				if(set_index_mod < (SETS_PER_TAG_GROUP + EXTRA_SETS_FOR_ZERO_GROUP))
+				{
+					vector<uint64_t> tags = vector<uint64_t> (SETS_PER_TAG_GROUP + EXTRA_SETS_FOR_ZERO_GROUP, 0);
+					set_index_start = set_index - set_index_mod;
+					for(uint64_t i=0; i<(SETS_PER_TAG_GROUP + EXTRA_SETS_FOR_ZERO_GROUP); i++)
+					{
+						tags[i] = set_index_start+i;
+					}
+					tbuff.addTags(tags, true);					
+				}
+				else
+				{
+					vector<uint64_t> tags = vector<uint64_t> (SETS_PER_TAG_GROUP, 0);
+					set_index_start = set_index - ((set_index_mod-EXTRA_SETS_FOR_ZERO_GROUP) % SETS_PER_TAG_GROUP);
+					for(uint64_t i=0; i<SETS_PER_TAG_GROUP; i++)
+					{
+						tags[i] = set_index_start+i;
+					}
+					tbuff.addTags(tags, true);						
+				}
+			}
+
+			contention_cache_line_unlock(p.cache_addr);
+			// we're done here
+			// no need to do anything more with these
 		}
 		else if(assocVersion == channel && !line_read && !p.callback_sent)
 		{
@@ -1528,7 +1762,7 @@ namespace HybridSim {
 			Transaction t = Transaction(p.type, p.orig_addr, NULL);
 			// However, do not totally unlock the page from the pending set yet because we're still working with it
 			contention_cache_line_unlock(p.cache_addr);
-			HitCheck(t);
+			HitCheck(t, false);
 		}
 		else
 		{			
@@ -2084,7 +2318,7 @@ namespace HybridSim {
 				CacheReadFinish(addr, p, 0);
 				cache_pending_set.erase(addr);
 			}
-			else if (p.op == TAG_READ)
+			else if (p.op == TAG_READ || p.op == TAG_PREFETCH)
 			{
 				cache_pending_set.erase(addr);
 				CacheReadFinish(addr, p, 0);

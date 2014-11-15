@@ -61,6 +61,8 @@ namespace HybridSim
 
 		num_tag_accesses = 0;
 		num_tag_hits = 0;
+		num_tag_prefetches = 0;
+		num_tag_prefetch_hits = 0;
 
 		sum_latency = 0;
 		sum_read_latency = 0;
@@ -497,6 +499,20 @@ namespace HybridSim
 		cur_num_tag_hits += 1;
 	}
 
+	void Logger::tag_buffer_prefetch()
+	{
+		num_tag_prefetches += 1;
+		cur_num_tag_prefetches += 1;
+	}
+	
+	void Logger::tag_buffer_prefetch_hit()
+	{
+		num_tag_hits += 1;
+		cur_num_tag_hits += 1;
+		num_tag_prefetch_hits += 1;
+		cur_num_tag_prefetch_hits += 1;
+	}
+
 
 	double Logger::compute_running_average(double old_average, double num_values, double new_value)
 	{
@@ -706,6 +722,10 @@ namespace HybridSim
 				savefile << "tag accesses: " << cur_num_tag_accesses << "\n";
 				savefile << "tag hits: " << cur_num_tag_hits << "\n";
 				savefile << "tag hit rate: " << this->divide(cur_num_tag_hits, cur_num_tag_accesses) << "\n";
+				savefile << "tag prefetches: " << cur_num_tag_prefetches << "\n";
+				savefile << "tag prefetch hits: " << cur_num_tag_prefetch_hits << "\n";
+				savefile << "tag prefetch hit rate: " << this->divide(cur_num_tag_prefetch_hits, cur_num_tag_prefetches) << "\n";
+				
 			}
 			savefile << "average latency: " << this->latency_cycles(cur_sum_latency, cur_num_accesses) << " cycles";
 			savefile << " (" << this->latency_us(cur_sum_latency, cur_num_accesses) << " us)\n";
@@ -810,6 +830,8 @@ namespace HybridSim
 
 		cur_num_tag_accesses = 0;
 		cur_num_tag_hits = 0;
+		cur_num_tag_prefetches = 0;
+		cur_num_tag_prefetch_hits = 0;
 
 		cur_sum_latency = 0;
 		cur_sum_read_latency = 0;
@@ -860,6 +882,9 @@ namespace HybridSim
 			savefile << "tag accesses: " << num_tag_accesses << "\n";
 			savefile << "tag hits: " << num_tag_hits << "\n";
 			savefile << "tag hit rate: " << this->divide(num_tag_hits, num_tag_accesses) << "\n";
+			savefile << "tag prefetches: " << num_tag_prefetches << "\n";
+			savefile << "tag prefetch hits: " << num_tag_prefetch_hits << "\n";
+			savefile << "tag hit rate: " << this->divide(num_tag_prefetch_hits, num_tag_prefetches) << "\n";
 		}
 		savefile << "average latency: " << this->latency_cycles(sum_latency, num_accesses) << " cycles";
 		savefile << " (" << this->latency_us(sum_latency, num_accesses) << " us)\n";
