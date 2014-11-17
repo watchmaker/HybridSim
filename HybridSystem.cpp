@@ -61,7 +61,7 @@ namespace HybridSim {
 		inipathPrefix.append("/");
 
 		iniReader.read(hybridsim_ini);
-		iniReader.read_nv_ini(nvdimm_ini);
+		iniReader.read_nv_ini(nvdimm_cache_ini);
 		
 		if (ENABLE_LOGGER)
 			log.init();
@@ -70,29 +70,26 @@ namespace HybridSim {
 		assert(CACHE_PAGES >= SET_SIZE);
 
 		systemID = id;
-		cerr << "Creating Cache using NVDIMM with " << nvdimm_ini << "\n";
-		llcache = NVDSim::getNVDIMMInstance(1,nvdimm_ini,"ini/def_system.ini",inipathPrefix,"");
+		cerr << "Creating Cache using NVDIMM with " << nvdimm_cache_ini << "\n";
+		llcache = NVDSim::getNVDIMMInstance(1,nvdimm_cache_ini,"ini/def_system.ini",inipathPrefix,"");
 	
 
-		cerr << "Creating Backing Store using DRAMSim with " << dram_ini << "\n";
-		uint64_t dram_size = (TOTAL_PAGES * PAGE_SIZE) >> 20;
-		dram_size = (dram_size == 0) ? 1 : dram_size; // DRAMSim requires a minimum of 1 MB, even if HybridSim isn't going to use it.
-		dram_size = (OVERRIDE_DRAM_SIZE == 0) ? dram_size : OVERRIDE_DRAM_SIZE; // If OVERRIDE_DRAM_SIZE is non-zero, then use it.
-		back = DRAMSim::getMemorySystemInstance(dram_ini, sys_ini, inipathPrefix, "resultsfilename", dram_size);
+		cerr << "Creating Backing Store using NVDIMM with " << nvdimm_back_ini << "\n";
+		back = NVDSim::getNVDIMMInstance(2,nvdimm_back_ini,"ini/def_system.ini",inipathPrefix,"");
 		cerr << "Done with creating memories" << endl;
 		
-		// Set up the callbacks for NVDIMM.
+		// Set up the callbacks for NVDIMM cache.
 		typedef NVDSim::Callback <HybridSystem, void, uint64_t, uint64_t, uint64_t, bool> nvdsim_callback_t;
 		NVDSim::Callback_t *nv_read_cb = new nvdsim_callback_t(this, &HybridSystem::CacheReadCallback);
 		NVDSim::Callback_t *nv_write_cb = new nvdsim_callback_t(this, &HybridSystem::CacheWriteCallback);
 		NVDSim::Callback_t *nv_crit_cb = new nvdsim_callback_t(this, &HybridSystem::CacheCriticalLineCallback);
 		llcache->RegisterCallbacks(nv_read_cb, nv_crit_cb, nv_write_cb, NULL);
 		
-		// Set up the callbacks for DRAM.
-		typedef DRAMSim::Callback <HybridSystem, void, uint, uint64_t, uint64_t> dramsim_callback_t;
-		DRAMSim::TransactionCompleteCB *read_cb = new dramsim_callback_t(this, &HybridSystem::BackReadCallback);
-		DRAMSim::TransactionCompleteCB *write_cb = new dramsim_callback_t(this, &HybridSystem::BackWriteCallback);
-		back->RegisterCallbacks(read_cb, write_cb, NULL);
+		// Set up the callbacks for NVDIMM back.
+		NVDSim::Callback_t *nv_back_read_cb = new nvdsim_callback_t(this, &HybridSystem::BackReadCallback);
+		NVDSim::Callback_t *nv_back_write_cb = new nvdsim_callback_t(this, &HybridSystem::BackWriteCallback);
+		NVDSim::Callback_t *nv_back_crit_cb = new nvdsim_callback_t(this, &HybridSystem::BackCriticalLineCallback);
+		back->RegisterCallbacks(nv_back_read_cb, nv_back_crit_cb, nv_back_write_cb, NULL);
 
 		decoder = AddressDecode();
 		if(DEBUG_COMBO_TAG)
@@ -2344,7 +2341,60 @@ namespace HybridSim {
 		cache_pending_set.erase(addr);
 	}
 
-	void HybridSystem::BackReadCallback(uint id, uint64_t addr, uint64_t cycle)
+	void HybridSystem::CacheCriticalLineCallback(uint64_t id, uint64_t addr, uint64_t cycle, bool unmapped)
+	{
+		// This function is called to implement critical line first for reads.
+		// This allows HybridSim to tell the external user it can make progress as soon as the data
+		// it is waiting for is back in the memory controller.
+
+		//cerr << cycle << ": Critical Line Callback Received for address " << addr << "\n";
+
+		if (cache_pending.count(PAGE_ADDRESS(addr)) != 0)
+		{
+			// Get the pending object.
+			Pending p = cache_pending[PAGE_ADDRESS(addr)];
+
+			// Note: DO NOT REMOVE THIS FROM THE PENDING SET.
+
+
+			if (p.op == LINE_READ)
+			{
+				if (p.callback_sent)
+				{
+					ERROR("CacheCriticalLineCallback called twice on the same pending item.");
+					abort();
+				}
+					
+				// Make the callback and mark it as being called.
+				if (p.type == DATA_READ)
+					ReadDoneCallback(systemID, p.orig_addr, currentClockCycle);
+				else if(p.type == DATA_WRITE)
+					WriteDoneCallback(systemID, p.orig_addr, currentClockCycle);
+				else
+				{
+					// Do nothing because this is a PREFETCH.
+				}
+
+				// Mark the pending item's callback as being sent so it isn't sent again later.
+				p.callback_sent = true;
+
+				cache_pending[PAGE_ADDRESS(addr)] = p;
+			}
+			else
+			{
+				ERROR("CacheCriticalLineCallback received an invalid op.");
+				abort();
+			}
+		}
+		else
+		{
+			ERROR("CacheCriticalLineCallback received an address not in the pending set.");
+			abort();
+		}
+
+	}
+
+	void HybridSystem::BackReadCallback(uint64_t id, uint64_t addr, uint64_t cycle, bool unmapped)
 	{
 		if (back_pending.count(PAGE_ADDRESS(addr)) != 0)
 		{
@@ -2373,7 +2423,7 @@ namespace HybridSim {
 		}
 	}
 
-	void HybridSystem::CacheCriticalLineCallback(uint64_t id, uint64_t addr, uint64_t cycle, bool unmapped)
+	void HybridSystem::BackCriticalLineCallback(uint64_t id, uint64_t addr, uint64_t cycle, bool unmapped)
 	{
 		// This function is called to implement critical line first for reads.
 		// This allows HybridSim to tell the external user it can make progress as soon as the data
@@ -2426,7 +2476,7 @@ namespace HybridSim {
 
 	}
 
-	void HybridSystem::BackWriteCallback(uint id, uint64_t addr, uint64_t cycle)
+	void HybridSystem::BackWriteCallback(uint64_t id, uint64_t addr, uint64_t cycle, bool unmapped)
 	{
 		// Nothing to do (it doesn't matter when the back write finishes for the cache controller, as long as it happens).
 
@@ -2518,6 +2568,8 @@ namespace HybridSim {
 		
 			// Tell NVDIMM to print logs now
 			llcache->saveStats();
+			// Both of them
+			back->saveStats();
 
 			if(DEBUG_COMBO_TAG)
 			{

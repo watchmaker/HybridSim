@@ -98,8 +98,8 @@ uint64_t REPLACEMENT_PERIOD;
 uint64_t CYCLES_PER_SECOND = 667000000;
 
 // INI files
-string dram_ini = "ini/DDR3_micron_8M_8B_x8_sg15.ini";
-string nvdimm_ini = "ini/samsung_K9XXG08UXM(mod).ini";
+string nvdimm_back_ini = "ini/samsung_K9XXG08UXM(mod).ini";
+string nvdimm_cache_ini = "ini/samsung_K9XXG08UXM(mod).ini";
 string sys_ini = "ini/system.ini";
 
 // Save/Restore options
@@ -323,10 +323,10 @@ string NVDIMM_SAVE_FILE = "none";
 				convert_uint64_t(REPLACEMENT_PERIOD, value, key);
 			else if (key.compare("CYCLES_PER_SECOND") == 0)
 				convert_uint64_t(CYCLES_PER_SECOND, value, key);
-			else if (key.compare("dram_ini") == 0)
-				dram_ini = value;
-			else if (key.compare("nvdimm_ini") == 0)
-				nvdimm_ini = value;
+			else if (key.compare("nvdimm_back_ini") == 0)
+				nvdimm_back_ini = value;
+			else if (key.compare("nvdimm_cache_ini") == 0)
+				nvdimm_cache_ini = value;
 			else if (key.compare("sys_ini") == 0)
 				sys_ini = value;
 			else if (key.compare("ENABLE_RESTORE") == 0)

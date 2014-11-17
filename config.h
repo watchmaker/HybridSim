@@ -267,8 +267,8 @@ extern uint64_t REPLACEMENT_PERIOD; //Used for some replacement policies that ha
 extern uint64_t CYCLES_PER_SECOND;
 
 // INI files
-extern string dram_ini;
-extern string nvdimm_ini;
+extern string nvdimm_back_ini;
+extern string nvdimm_cache_ini;
 extern string sys_ini;
 
 // Save/Restore options
