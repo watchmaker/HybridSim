@@ -47,7 +47,8 @@ namespace HybridSim
 	class IniReader
 	{
 		public:
-		void read(string inifile);
+			void read(string inifile);
+			void read_nv_ini(string inifile);
 	};
 }
 

@@ -87,7 +87,7 @@ namespace HybridSim {
 
 			if(ENABLE_SET_CHANNEL_INTERLEAVE)
 			{
-				tag_buffer_set = (set_index / NVDSim::NUM_PACKAGES) % NUM_TAG_SETS;
+				tag_buffer_set = (set_index / NUM_CHANNELS) % NUM_TAG_SETS;
 			}
 			else
 			{
@@ -401,7 +401,7 @@ namespace HybridSim {
 		
 		if(ENABLE_SET_CHANNEL_INTERLEAVE)
 		{
-			tag_buffer_set = (set_index / NVDSim::NUM_PACKAGES) % NUM_TAG_SETS;
+			tag_buffer_set = (set_index / NUM_CHANNELS) % NUM_TAG_SETS;
 		}
 		else
 		{

@@ -215,13 +215,21 @@ extern uint64_t SETS_PER_TAG_GROUP;
 extern uint64_t ENABLE_SET_CHANNEL_INTERLEAVE;
 extern uint64_t ENABLE_TAG_PREFETCH;
 extern uint64_t TAG_PREFETCH_WINDOW;
+
+// Paul Mod: NVDIMM Configuration values used for Tag Buffer Stuff
+extern uint64_t NUM_CHANNELS;
+extern uint64_t RANKS_PER_CHANNEL;
+extern uint64_t BANKS_PER_RANK;
+extern uint64_t ROWS_PER_BANK;
+extern uint64_t COL_PER_ROW;
+
 #define EXTRA_SETS_FOR_ZERO_GROUP (SETS_PER_LINE % SETS_PER_TAG_GROUP)
 // number of accesses at the front of a row that are reserved for tags
 #define TAG_OFFSET ((SETS_PER_LINE - EXTRA_SETS_FOR_ZERO_GROUP) / SETS_PER_TAG_GROUP) 
 // number of accesses that are wasted  because we can't always fill a row evenly with tags and data
-#define WASTE_OFFSET (NVDSim::PAGES_PER_BLOCK - ((SETS_PER_LINE / SETS_PER_TAG_GROUP) + (SETS_PER_LINE * SET_SIZE)))
+#define WASTE_OFFSET (COL_PER_ROW - ((SETS_PER_LINE / SETS_PER_TAG_GROUP) + (SETS_PER_LINE * SET_SIZE)))
 // update the cache page variable to reflect the wasted cache pages due to tag storage
-#define NUM_ROWS (NVDSim::NUM_PACKAGES * NVDSim::DIES_PER_PACKAGE * NVDSim::PLANES_PER_DIE * NVDSim::BLOCKS_PER_PLANE)
+#define NUM_ROWS (NUM_CHANNELS * RANKS_PER_CHANNEL * BANKS_PER_RANK * ROWS_PER_BANK)
 #define COMBO_CACHE_PAGES (CACHE_PAGES - ((NUM_ROWS) * (TAG_OFFSET + WASTE_OFFSET)))
 #define ACTUAL_CACHE_PAGES (assocVersion == combo_tag ? COMBO_CACHE_PAGES : CACHE_PAGES)
 

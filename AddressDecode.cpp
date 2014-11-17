@@ -39,12 +39,12 @@ using namespace std;
 
 AddressDecode::AddressDecode()
 {
-	channelBitWidth = hybridsim_log2(NVDSim::NUM_PACKAGES);
-	rankBitWidth = hybridsim_log2(NVDSim::DIES_PER_PACKAGE);
-	bankBitWidth = hybridsim_log2(NVDSim::PLANES_PER_DIE);
-	rowBitWidth = hybridsim_log2(NVDSim::VIRTUAL_BLOCKS_PER_PLANE);
-	colBitWidth = hybridsim_log2(NVDSim::PAGES_PER_BLOCK);
-	colOffset = hybridsim_log2(NVDSim::NV_PAGE_SIZE);
+	channelBitWidth = hybridsim_log2(NUM_CHANNELS);
+	rankBitWidth = hybridsim_log2(RANKS_PER_CHANNEL);
+	bankBitWidth = hybridsim_log2(BANKS_PER_RANK);
+	rowBitWidth = hybridsim_log2(ROWS_PER_BANK);
+	colBitWidth = hybridsim_log2(COL_PER_ROW);
+	colOffset = hybridsim_log2(PAGE_SIZE);
 
 	if(DEBUG_COMBO_TAG)
 	{
@@ -62,7 +62,7 @@ AddressSet AddressDecode::getDecode(uint64_t addr)
 	uint64_t physicalAddress, tempA, tempB;
 	AddressSet decoded_addr;
 
-	if(hybridsim_check_power2(NVDSim::BLOCKS_PER_PLANE))
+	if(hybridsim_check_power2(ROWS_PER_BANK))
 	{
 		physicalAddress = addr >> colOffset;
 		
@@ -95,16 +95,16 @@ AddressSet AddressDecode::getDecode(uint64_t addr)
 	{
 		physicalAddress = addr;
 
-		physicalAddress /= NVDSim::NV_PAGE_SIZE;
-		decoded_addr.channel = physicalAddress % NVDSim::NUM_PACKAGES;
-		physicalAddress /= NVDSim::NUM_PACKAGES;
-		decoded_addr.rank = physicalAddress % NVDSim::DIES_PER_PACKAGE;
-		physicalAddress /= NVDSim::DIES_PER_PACKAGE;
-		decoded_addr.bank = physicalAddress % NVDSim::PLANES_PER_DIE;
-		physicalAddress /= NVDSim::PLANES_PER_DIE;
-		decoded_addr.row = physicalAddress % NVDSim::BLOCKS_PER_PLANE;
-		physicalAddress /= NVDSim::BLOCKS_PER_PLANE;
-		decoded_addr.column = physicalAddress % NVDSim::PAGES_PER_BLOCK;		
+		physicalAddress /= PAGE_SIZE;
+		decoded_addr.channel = physicalAddress % NUM_CHANNELS;
+		physicalAddress /= NUM_CHANNELS;
+		decoded_addr.rank = physicalAddress % RANKS_PER_CHANNEL;
+		physicalAddress /= RANKS_PER_CHANNEL;
+		decoded_addr.bank = physicalAddress % BANKS_PER_RANK;
+		physicalAddress /= BANKS_PER_RANK;
+		decoded_addr.row = physicalAddress % ROWS_PER_BANK;
+		physicalAddress /= ROWS_PER_BANK;
+		decoded_addr.column = physicalAddress % COL_PER_ROW;		
 	}
 
 	if(DEBUG_COMBO_TAG)
