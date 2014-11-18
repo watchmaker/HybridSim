@@ -1150,7 +1150,7 @@ namespace HybridSim {
 			decoder.getDecode(curr_tag_addr);
 			
 			// throttle issuing tag prefetches to manage load on the cache
-			if(THROTTLE_TAG_PREFETCH && cache_pending.size() > TAG_THROTTLE_LIMIT)
+			if(TAG_THROTTLE_LIMIT != 0 && cache_pending.size() > TAG_THROTTLE_LIMIT)
 			{
 				break;
 			}
