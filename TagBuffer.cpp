@@ -112,7 +112,9 @@ namespace HybridSim {
 					// TODO: move these functions and the other replacement functions to some common object
 					std::list<tag_line>::iterator victim = tag_buffer[tag_buffer_set].begin();
 					// LRU replacement based on time stamps
-					if(tagReplacement == tag_lru)
+					// Reuse the same method with the nnn replacement strategy
+					// NNN replacement differs in how adjacent tags also have their time stamps updated on a hit
+					if(tagReplacement == tag_lru || tagReplacement == tag_nnn)
 					{
 						bool search_init = true;
 						uint64_t oldest_ts = 0;					
@@ -431,10 +433,48 @@ namespace HybridSim {
 				(*it).used = true;
 				// update the timestamp (not sure if this is the right way to go about this)
 				(*it).ts = currentClockCycle;
+				// set the return value before we move the iterator
+				uint64_t return_value = 0;
 				if((*it).prefetched == true)
-					return 2;
+					return_value = 2;
 				else
-					return 1;
+					return_value = 1;
+				// if we hit this guy then its likely we're going to hit the next few as well because they should be
+				// sequentially just after the one we hit
+				if(tagReplacement == tag_nnn)
+				{
+					uint64_t num_to_update = 0;
+					if(ENABLE_TAG_PREFETCH && TAG_PREFETCH_WINDOW == 0)
+					{
+						// the most tags we could have is a whole rows worth
+						num_to_update = 6;
+					}
+					// if we're prefetching more than just to the end of the row
+					// then however much we're prefetching could be useful
+					else if(ENABLE_TAG_PREFETCH)
+					{
+						num_to_update = TAG_PREFETCH_WINDOW-1;
+					}
+					// the most other tags we can get without prefetching
+					// there would definitely be sequential would be 2
+					else
+					{
+						num_to_update = 2;
+					}
+
+					// update the time stamps of the neighbors to preserve them
+					for(uint64_t i = 0; i < num_to_update; i++)
+					{
+						// step the iterator forward to the next sequential tag
+						it++;
+						// set the tags time stamp to slightly later than the last tag
+						// this should place prefence on the tags that immediately follow
+						// the tag that was hit
+						(*it).ts = currentClockCycle + i;
+					}
+				}
+				
+				return return_value;
 			}
 		}
 		if(DEBUG_COMBO_TAG)
