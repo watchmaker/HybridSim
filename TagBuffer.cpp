@@ -432,7 +432,7 @@ namespace HybridSim {
 				// TODO: Not sure if this is going to work, need to check it
 				(*it).used = true;
 				// update the timestamp (not sure if this is the right way to go about this)
-				(*it).ts = currentClockCycle;
+				//(*it).ts = currentClockCycle;
 				// set the return value before we move the iterator
 				uint64_t return_value = 0;
 				if((*it).prefetched == true)
@@ -461,16 +461,34 @@ namespace HybridSim {
 					{
 						num_to_update = 2;
 					}
-
-					// update the time stamps of the neighbors to preserve them
+					
+					std::list<tag_line>::iterator temp = it;
+					// update the time stamps of the forward neighbors to preserve them
 					for(uint64_t i = 0; i < num_to_update; i++)
 					{
+						// make sure we don't run off the end of the world
+						if(it == tag_buffer[tag_buffer_set].end())
+						{
+							break;
+						}
 						// step the iterator forward to the next sequential tag
 						it++;
 						// set the tags time stamp to slightly later than the last tag
 						// this should place prefence on the tags that immediately follow
 						// the tag that was hit
 						(*it).ts = currentClockCycle + i;
+					}
+
+					// update going backwards too
+					for(uint64_t i = 0; i < num_to_update; i++)
+					{
+						// make sure we don't run off the end of the world
+						if(it == tag_buffer[tag_buffer_set].begin())
+						{
+							break;
+						}
+						temp--;
+						(*temp).ts = currentClockCycle + i;
 					}
 				}
 				
