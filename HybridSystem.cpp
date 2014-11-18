@@ -2679,7 +2679,8 @@ namespace HybridSim {
 		
 			inFile.close();
 
-			llcache->loadNVState(NVDIMM_RESTORE_FILE);
+			// not worrying about NVDIMM's state right now
+			//llcache->loadNVState(NVDIMM_RESTORE_FILE);
 		}
 	}
 
@@ -2719,7 +2720,8 @@ namespace HybridSim {
 
 			savefile.close();
 
-			llcache->saveNVState(NVDIMM_SAVE_FILE);
+			// NVDIMM's state is basically non existant for everything we're doing with this branch
+			//llcache->saveNVState(NVDIMM_SAVE_FILE);
 		}
 	}
 
