@@ -215,6 +215,8 @@ extern uint64_t SETS_PER_TAG_GROUP;
 extern uint64_t ENABLE_SET_CHANNEL_INTERLEAVE;
 extern uint64_t ENABLE_TAG_PREFETCH;
 extern uint64_t TAG_PREFETCH_WINDOW;
+extern uint64_t THROTTLE_TAG_PREFETCH;
+extern uint64_t TAG_THROTTLE_LIMIT; // the number of pending operations we allow before we stop prefetching
 
 // Paul Mod: NVDIMM Configuration values used for Tag Buffer Stuff
 extern uint64_t NUM_CHANNELS;

@@ -78,6 +78,8 @@ uint64_t SETS_PER_TAG_GROUP;
 uint64_t ENABLE_SET_CHANNEL_INTERLEAVE;
 uint64_t ENABLE_TAG_PREFETCH;
 uint64_t TAG_PREFETCH_WINDOW;
+uint64_t THROTTLE_TAG_PREFETCH;
+uint64_t TAG_THROTTLE_LIMIT;
 string TAG_REPLACEMENT;
 TagReplacement tagReplacement;
 
@@ -243,6 +245,10 @@ string NVDIMM_SAVE_FILE = "none";
 				convert_uint64_t(ENABLE_SET_CHANNEL_INTERLEAVE, value, key);
 			else if (key.compare("ENABLE_TAG_PREFETCH") == 0)
 				convert_uint64_t(ENABLE_TAG_PREFETCH, value, key);
+			else if (key.compare("THROTTLE_TAG_PREFETCH") == 0)
+				convert_uint64_t(THROTTLE_TAG_PREFETCH, value, key);
+			else if (key.compare("TAG_THROTTLE_LIMIT") == 0)
+				convert_uint64_t(TAG_THROTTLE_LIMIT, value, key);
 			else if (key.compare("TAG_PREFETCH_WINDOW") == 0)
 				convert_uint64_t(TAG_PREFETCH_WINDOW, value, key);
 			else if (key.compare("TAG_REPLACEMENT") == 0)
