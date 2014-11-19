@@ -443,8 +443,10 @@ namespace HybridSim {
 				// sequentially just after the one we hit
 				if(tagReplacement == tag_nnn)
 				{
-					uint64_t num_to_update = 0;
-					if(ENABLE_TAG_PREFETCH && TAG_PREFETCH_WINDOW == 0)
+					// just do the immediate neighbors, not everything, if the neighbor is hit soon
+					// it'll update his neighbor and so on.
+					uint64_t num_to_update = 1;
+					/*if(ENABLE_TAG_PREFETCH && TAG_PREFETCH_WINDOW == 0)
 					{
 						// the most tags we could have is a whole rows worth
 						num_to_update = 6;
@@ -460,19 +462,20 @@ namespace HybridSim {
 					else
 					{
 						num_to_update = 2;
-					}
+						}*/
 					
 					std::list<tag_line>::iterator temp = it;
 					// update the time stamps of the forward neighbors to preserve them
 					for(uint64_t i = 0; i < num_to_update; i++)
 					{
+						// step the iterator forward to the next sequential tag
+						it++;
 						// make sure we don't run off the end of the world
 						if(it == tag_buffer[tag_buffer_set].end())
 						{
 							break;
 						}
-						// step the iterator forward to the next sequential tag
-						it++;
+						
 						// set the tags time stamp to slightly later than the last tag
 						// this should place prefence on the tags that immediately follow
 						// the tag that was hit
@@ -482,12 +485,12 @@ namespace HybridSim {
 					// update going backwards too
 					for(uint64_t i = 0; i < num_to_update; i++)
 					{
+						temp--;
 						// make sure we don't run off the end of the world
 						if(it == tag_buffer[tag_buffer_set].begin())
 						{
 							break;
-						}
-						temp--;
+						}						
 						(*temp).ts = currentClockCycle + i;
 					}
 				}

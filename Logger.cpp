@@ -249,6 +249,8 @@ namespace HybridSim
 		a.stop = this->currentClockCycle;
 		access_map[addr] = a;
 
+		//cout << "access map size is currently " << access_map.size() << "\n";
+
 		uint64_t latency = a.stop - a.start;
 
 		// Log cache event type and latency.
