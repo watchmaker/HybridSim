@@ -486,7 +486,7 @@ namespace HybridSim {
 					for(uint64_t i = 0; i < num_to_update; i++)
 					{
 						// make sure we don't run off the end of the world
-						if(it == tag_buffer[tag_buffer_set].begin())
+						if(temp == tag_buffer[tag_buffer_set].begin())
 						{
 							break;
 						}	
