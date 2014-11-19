@@ -485,12 +485,12 @@ namespace HybridSim {
 					// update going backwards too
 					for(uint64_t i = 0; i < num_to_update; i++)
 					{
-						temp--;
 						// make sure we don't run off the end of the world
 						if(it == tag_buffer[tag_buffer_set].begin())
 						{
 							break;
-						}						
+						}	
+						temp--;
 						(*temp).ts = currentClockCycle + i;
 					}
 				}
