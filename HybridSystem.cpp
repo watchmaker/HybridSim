@@ -2577,7 +2577,7 @@ namespace HybridSim {
 			// Both of them
 			back->saveStats();
 
-			if(DEBUG_COMBO_TAG)
+			if(DEBUG_TAG_BUFFER)
 			{
 				tbuff.printBufferUsage();
 			}

@@ -71,6 +71,9 @@
 // needed for the combo tag associativity version
 #define DEBUG_COMBO_TAG 0
 
+// outputs the usage of the tag buffer
+#define DEBUG_TAG_BUFFER 0
+
 // outputs the process of prefetching tags to stderr
 #define DEBUG_TAG_PREFETCH 0
 

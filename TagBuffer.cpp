@@ -36,7 +36,7 @@ namespace HybridSim {
 	
 	TagBuffer::TagBuffer()
 	{		
-		if (DEBUG_COMBO_TAG)
+		if (DEBUG_TAG_BUFFER)
 		{
 			debug_tag_buffer.open("tag_buffer.log", ios_base::out | ios_base::trunc);
 			if (!debug_tag_buffer.is_open())
