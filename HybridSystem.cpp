@@ -92,7 +92,7 @@ namespace HybridSim {
 		back->RegisterCallbacks(nv_back_read_cb, nv_back_crit_cb, nv_back_write_cb, NULL);
 
 		decoder = AddressDecode();
-		if(DEBUG_COMBO_TAG)
+		if(DEBUG_COMBO_TAG || DEBUG_TAG_BUFFER)
 		{
 			tbuff.initializeSetTracking();
 		}

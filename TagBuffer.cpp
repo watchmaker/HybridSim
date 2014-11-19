@@ -101,6 +101,11 @@ namespace HybridSim {
 				sets_accessed[tag_buffer_set] = sets_accessed[tag_buffer_set] + 1;
 			}
 
+			if(DEBUG_TAG_BUFFER)
+			{
+				sets_accessed[tag_buffer_set] = sets_accessed[tag_buffer_set] + 1;
+			}
+
 			// if we have an entry for this tag set
 			if(tag_buffer.find(tag_buffer_set) != tag_buffer.end())
 			{		
