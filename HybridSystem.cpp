@@ -1165,7 +1165,8 @@ namespace HybridSim {
 
 			// skip the reading the tags that triggered this prefetch
 			// make sure we're not already reading these tags
-			if(cache_pending.count(curr_tag_addr) == 0 && temp_set != set_index_align)
+			// make sure we don't already have these tags
+			if(cache_pending.count(curr_tag_addr) == 0 && temp_set != set_index_align && tbuff.haveTags(temp_set) == 0)
 			{
 				if(DEBUG_TAG_PREFETCH)
 				{

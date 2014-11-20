@@ -484,7 +484,7 @@ namespace HybridSim {
 						// set the tags time stamp to slightly later than the last tag
 						// this should place prefence on the tags that immediately follow
 						// the tag that was hit
-						(*it).ts = currentClockCycle + i;
+						(*it).ts = currentClockCycle - i;
 					}
 
 					// update going backwards too
@@ -496,7 +496,7 @@ namespace HybridSim {
 							break;
 						}	
 						temp--;
-						(*temp).ts = currentClockCycle + i;
+						(*temp).ts = currentClockCycle - i;
 					}
 				}
 				
