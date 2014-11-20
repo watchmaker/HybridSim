@@ -136,7 +136,7 @@ void transaction_complete(uint64_t clock_cycle)
 	complete++;
 	pending--;
 
-	if ((complete % 10000 == 0) || (clock_cycle - last_clock > CLOCK_DELAY))
+	if ((complete % 1 == 0) || (clock_cycle - last_clock > CLOCK_DELAY))
 	{
 		cout << "complete= " << complete << "\t\tpending= " << pending << "\t\t cycle_count= "<< clock_cycle << "\t\tthrottle_count=" << throttle_count << "\n";
 		last_clock = clock_cycle;
@@ -296,6 +296,7 @@ int HybridSimTBS::run_trace(string tracefile)
 
 
 	// Run update until all transactions come back.
+	cout << "pending is " << pending << "\n";
 	while (pending > 0)
 	{
 		mem->update();
@@ -305,8 +306,8 @@ int HybridSimTBS::run_trace(string tracefile)
 	// This is a hack for the moment to ensure that a final write completes.
 	// In the future, we need two callbacks to fix this.
 	// This is not counted towards the cycle counts for the run though.
-	for (int i=0; i<1000000; i++)
-		mem->update();
+	//for (int i=0; i<1000000; i++)
+	//	mem->update();
 
 
 	cout << "\n\n" << mem->currentClockCycle << ": completed " << complete << "\n\n";

@@ -1,0 +1,5 @@
+hybridsim_test main()
+Using trace file /home/pkt3c/Traces/Multi_DIMM/Server/Bing_250M.txt
+Refresh level is: 1
+Refresh control period is: 30517
+3814cache pages are 917504

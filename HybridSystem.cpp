@@ -300,7 +300,6 @@ namespace HybridSim {
 			uint64_t back_addr = ALIGN((*it).address);
 			uint64_t page_addr = PAGE_ADDRESS(back_addr);
 
-
 			// Check to see if this page is open under contention rules.
 			if (contention_is_unlocked(back_addr))
 			{
@@ -1090,14 +1089,17 @@ namespace HybridSim {
 			set_group_pos = (set_index_mod) % (SETS_PER_TAG_GROUP + EXTRA_SETS_FOR_ZERO_GROUP);
 			set_index_pos = (set_index_mod - EXTRA_SETS_FOR_ZERO_GROUP) % (SETS_PER_LINE / SETS_PER_TAG_GROUP);
 			set_index_align = set_index - set_group_pos;
-			temp_set = set_index_align + (SETS_PER_TAG_GROUP + EXTRA_SETS_FOR_ZERO_GROUP);
+			//temp_set = set_index_align + (SETS_PER_TAG_GROUP + EXTRA_SETS_FOR_ZERO_GROUP);
+			// we start with the set that starts the row
+			temp_set = set_index_align;
 		}
 		else
 		{
 			set_group_pos = (set_index_mod-EXTRA_SETS_FOR_ZERO_GROUP) % (SETS_PER_TAG_GROUP);
 			set_index_pos = set_index_mod % (SETS_PER_LINE / SETS_PER_TAG_GROUP);
 			set_index_align = set_index - set_group_pos;
-			temp_set = set_index_align + SETS_PER_TAG_GROUP;
+			// we start with the set that starts the row
+			temp_set = set_index_align - ((SETS_PER_TAG_GROUP + EXTRA_SETS_FOR_ZERO_GROUP) + ((set_group_pos - 1) * SETS_PER_TAG_GROUP));
 		}
 		
 		if(DEBUG_TAG_PREFETCH)
@@ -1107,23 +1109,28 @@ namespace HybridSim {
 			cerr << "set index align was " << set_index_align << "\n";
 		}
 
-		uint64_t curr_set_addr = (address_stuff.channel + (address_stuff.rank * (NUM_CHANNELS)) + (address_stuff.bank * (NUM_CHANNELS * RANKS_PER_CHANNEL)) + (address_stuff.row * (NUM_CHANNELS * RANKS_PER_CHANNEL * BANKS_PER_RANK)) + (set_index_pos * NUM_ROWS)) * PAGE_SIZE;
-		decoder.getDecode(curr_set_addr);
-
 		// allow for variable length prefetches
 		uint64_t index_max = 0;
+		set_index_pos = 0;
 		if(TAG_PREFETCH_WINDOW == 0)
 		{
+			// if we're getting the row, get the whole row	
 			index_max = (SETS_PER_LINE / SETS_PER_TAG_GROUP);
 		}
 		else
 		{
+			
 			index_max = set_index_pos+TAG_PREFETCH_WINDOW+1;
 		}
 
+		uint64_t curr_set_addr = (address_stuff.channel + (address_stuff.rank * (NUM_CHANNELS)) + (address_stuff.bank * (NUM_CHANNELS * RANKS_PER_CHANNEL)) + (address_stuff.row * (NUM_CHANNELS * RANKS_PER_CHANNEL * BANKS_PER_RANK)) + (set_index_pos * NUM_ROWS)) * PAGE_SIZE;
+		decoder.getDecode(curr_set_addr);
+
+		
+
 		// only prefetch going forward
 		// set_index_pos should be tags that we already have
-		uint64_t temp_index_pos = set_index_pos+1;
+		uint64_t temp_index_pos = set_index_pos;
 		uint64_t temp_chan = address_stuff.channel;
 		if(temp_index_pos >= ((SETS_PER_LINE-EXTRA_SETS_FOR_ZERO_GROUP) / SETS_PER_TAG_GROUP))
 		{
@@ -1137,7 +1144,7 @@ namespace HybridSim {
 			}
 		}
 	
-		for(uint64_t prefetch_index = set_index_pos+1; prefetch_index < index_max; prefetch_index++)
+		for(uint64_t prefetch_index = set_index_pos; prefetch_index < index_max; prefetch_index++)
 		{		
 			uint64_t curr_tag_addr = (temp_chan + (address_stuff.rank * (NUM_CHANNELS)) + (address_stuff.bank * (NUM_CHANNELS * RANKS_PER_CHANNEL)) + (address_stuff.row * (NUM_CHANNELS * RANKS_PER_CHANNEL * BANKS_PER_RANK)) + (temp_index_pos * NUM_ROWS)) * PAGE_SIZE;
 	
@@ -1155,8 +1162,9 @@ namespace HybridSim {
 				break;
 			}
 
+			// skip the reading the tags that triggered this prefetch
 			// make sure we're not already reading these tags
-			if(cache_pending.count(curr_tag_addr) == 0)
+			if(cache_pending.count(curr_tag_addr) == 0 && temp_set != set_index_align)
 			{
 				if(DEBUG_TAG_PREFETCH)
 				{
