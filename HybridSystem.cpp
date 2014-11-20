@@ -1099,11 +1099,12 @@ namespace HybridSim {
 			set_index_pos = set_index_mod % (SETS_PER_LINE / SETS_PER_TAG_GROUP);
 			set_index_align = set_index - set_group_pos;
 			// we start with the set that starts the row
-			temp_set = set_index_align - ((SETS_PER_TAG_GROUP + EXTRA_SETS_FOR_ZERO_GROUP) + ((set_group_pos - 1) * SETS_PER_TAG_GROUP));
+			temp_set = set_index_align - ((SETS_PER_TAG_GROUP + EXTRA_SETS_FOR_ZERO_GROUP) + ((((set_index_mod-EXTRA_SETS_FOR_ZERO_GROUP) / SETS_PER_TAG_GROUP) - 1) * SETS_PER_TAG_GROUP));
 		}
 		
 		if(DEBUG_TAG_PREFETCH)
 		{
+			cerr << "set group pos was " << set_group_pos << "\n";
 			cerr << "set index mod was " << set_index_mod << "\n";
 			cerr << "set index position was " << set_index_pos << "\n";
 			cerr << "set index align was " << set_index_align << "\n";
