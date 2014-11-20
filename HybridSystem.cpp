@@ -1002,7 +1002,8 @@ namespace HybridSim {
 					else
 						log.tag_buffer_hit();
 				}
-				HitCheck(trans, false);
+				//last minute change, always prefetch
+				HitCheck(trans, true);
 			}
 			else
 			{
