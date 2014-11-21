@@ -56,6 +56,7 @@ namespace HybridSim {
 	void TagBuffer::initializeSetTracking()
 	{
 		sets_accessed = vector<uint64_t>(NUM_TAG_SETS, 0);
+		sets_hit = vector<uint64_t>(NUM_TAG_SETS, 0);
 	}
 
 	// right now this just steps to keep the clock cycle count accurate for 
@@ -434,6 +435,11 @@ namespace HybridSim {
 					debug_tag_buffer << "================\n\n";
 				}
 
+				if(DEBUG_TAG_BUFFER)
+				{
+					sets_hit[tag_buffer_set] = sets_hit[tag_buffer_set] + 1;
+				}
+
 				// TODO: Not sure if this is going to work, need to check it
 				(*it).used = true;
 				// update the timestamp (not sure if this is the right way to go about this)
@@ -518,6 +524,13 @@ namespace HybridSim {
 		for(uint64_t j = 0; j < NUM_TAG_SETS; j++)
 		{
 			debug_tag_buffer << "Set " << j << " : " << sets_accessed[j] << "\n";
+		}
+
+		debug_tag_buffer << "\n\n********************************************\n";
+		debug_tag_buffer << ">>>>>>> Final Tag Set Hit Counts <<<<<<<<\n";
+		for(uint64_t j = 0; j < NUM_TAG_SETS; j++)
+		{
+			debug_tag_buffer << "Set " << j << " : " << sets_hit[j] << "\n";
 		}
 		debug_tag_buffer.flush();
 		debug_tag_buffer.close();
