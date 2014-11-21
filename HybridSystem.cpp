@@ -61,6 +61,19 @@ namespace HybridSim {
 		inipathPrefix.append("/");
 
 		iniReader.read(hybridsim_ini);
+
+		if (ini == "")
+		{
+			nvdimm_ini = "";
+			char *base_path = getenv("HYBRIDSIM_BASE");
+			if (base_path != NULL)
+			{
+				nvdimm_ini.append(base_path);
+				nvdimm_ini.append("/");
+			}
+			nvdimm_ini.append("../HybridSim/ini/nvdimm.ini");
+		}
+
 		iniReader.read_nv_ini(nvdimm_ini);
 		
 		if (ENABLE_LOGGER)
