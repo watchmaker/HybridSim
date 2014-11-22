@@ -108,7 +108,7 @@ namespace HybridSim {
 		back->RegisterCallbacks(read_cb, write_cb, NULL);
 
 		decoder = AddressDecode();
-		if(DEBUG_COMBO_TAG)
+		if(DEBUG_COMBO_TAG || DEBUG_TAG_BUFFER)
 		{
 			tbuff.initializeSetTracking();
 		}
@@ -1112,28 +1112,30 @@ namespace HybridSim {
 			set_group_pos = (set_index_mod) % (SETS_PER_TAG_GROUP + EXTRA_SETS_FOR_ZERO_GROUP);
 			set_index_pos = (set_index_mod - EXTRA_SETS_FOR_ZERO_GROUP) % (SETS_PER_LINE / SETS_PER_TAG_GROUP);
 			set_index_align = set_index - set_group_pos;
-			temp_set = set_index_align + (SETS_PER_TAG_GROUP + EXTRA_SETS_FOR_ZERO_GROUP);
+			//temp_set = set_index_align + (SETS_PER_TAG_GROUP + EXTRA_SETS_FOR_ZERO_GROUP);
+			// we start with the set that starts the row
+			temp_set = set_index_align;
 		}
 		else
 		{
 			set_group_pos = (set_index_mod-EXTRA_SETS_FOR_ZERO_GROUP) % (SETS_PER_TAG_GROUP);
 			set_index_pos = set_index_mod % (SETS_PER_LINE / SETS_PER_TAG_GROUP);
 			set_index_align = set_index - set_group_pos;
-			temp_set = set_index_align + SETS_PER_TAG_GROUP;
+			// we start with the set that starts the row
+			temp_set = set_index_align - ((SETS_PER_TAG_GROUP + EXTRA_SETS_FOR_ZERO_GROUP) + ((((set_index_mod-EXTRA_SETS_FOR_ZERO_GROUP) / SETS_PER_TAG_GROUP) - 1) * SETS_PER_TAG_GROUP));
 		}
 		
 		if(DEBUG_TAG_PREFETCH)
 		{
+			cerr << "set group pos was " << set_group_pos << "\n";
 			cerr << "set index mod was " << set_index_mod << "\n";
 			cerr << "set index position was " << set_index_pos << "\n";
 			cerr << "set index align was " << set_index_align << "\n";
-		}
-
-		uint64_t curr_set_addr = (address_stuff.channel + (address_stuff.rank * (NUM_CHANNELS)) + (address_stuff.bank * (NUM_CHANNELS * RANKS_PER_CHANNEL)) + (address_stuff.row * (NUM_CHANNELS * RANKS_PER_CHANNEL * BANKS_PER_RANK)) + (set_index_pos * NUM_ROWS)) * PAGE_SIZE;
-		decoder.getDecode(curr_set_addr);
+		}		
 
 		// allow for variable length prefetches
 		uint64_t index_max = 0;
+		set_index_pos = 0;
 		if(TAG_PREFETCH_WINDOW == 0)
 		{
 			index_max = (SETS_PER_LINE / SETS_PER_TAG_GROUP);
@@ -1143,9 +1145,12 @@ namespace HybridSim {
 			index_max = set_index_pos+TAG_PREFETCH_WINDOW+1;
 		}
 
+		uint64_t curr_set_addr = (address_stuff.channel + (address_stuff.rank * (NUM_CHANNELS)) + (address_stuff.bank * (NUM_CHANNELS * RANKS_PER_CHANNEL)) + (address_stuff.row * (NUM_CHANNELS * RANKS_PER_CHANNEL * BANKS_PER_RANK)) + (set_index_pos * NUM_ROWS)) * PAGE_SIZE;
+		decoder.getDecode(curr_set_addr);
+
 		// only prefetch going forward
 		// set_index_pos should be tags that we already have
-		uint64_t temp_index_pos = set_index_pos+1;
+		uint64_t temp_index_pos = set_index_pos;
 		uint64_t temp_chan = address_stuff.channel;
 		if(temp_index_pos >= ((SETS_PER_LINE-EXTRA_SETS_FOR_ZERO_GROUP) / SETS_PER_TAG_GROUP))
 		{
@@ -1159,7 +1164,7 @@ namespace HybridSim {
 			}
 		}
 	
-		for(uint64_t prefetch_index = set_index_pos+1; prefetch_index < index_max; prefetch_index++)
+		for(uint64_t prefetch_index = set_index_pos; prefetch_index < index_max; prefetch_index++)
 		{		
 			uint64_t curr_tag_addr = (temp_chan + (address_stuff.rank * (NUM_CHANNELS)) + (address_stuff.bank * (NUM_CHANNELS * RANKS_PER_CHANNEL)) + (address_stuff.row * (NUM_CHANNELS * RANKS_PER_CHANNEL * BANKS_PER_RANK)) + (temp_index_pos * NUM_ROWS)) * PAGE_SIZE;
 	
@@ -1171,8 +1176,14 @@ namespace HybridSim {
 			}
 			decoder.getDecode(curr_tag_addr);
 			
+			// throttle issuing tag prefetches to manage load on the cache
+			if(TAG_THROTTLE_LIMIT != 0 && cache_pending.size() > TAG_THROTTLE_LIMIT)
+			{
+				break;
+			}
+
 			// make sure we're not already reading these tags
-			if(cache_pending.count(curr_tag_addr) == 0)
+			if(cache_pending.count(curr_tag_addr) == 0 && temp_set != set_index_align && tbuff.haveTags(temp_set) == 0)
 			{
 				if(DEBUG_TAG_PREFETCH)
 				{

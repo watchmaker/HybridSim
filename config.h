@@ -71,6 +71,9 @@
 // needed for the combo tag associativity version
 #define DEBUG_COMBO_TAG 0
 
+// outputs the usage of the tag buffer
+#define DEBUG_TAG_BUFFER 0
+
 // outputs the process of prefetching tags to stderr
 #define DEBUG_TAG_PREFETCH 0
 
@@ -216,6 +219,8 @@ extern uint64_t ENABLE_TAG_BUFFER;
 extern uint64_t ENABLE_SET_CHANNEL_INTERLEAVE;
 extern uint64_t ENABLE_TAG_PREFETCH;
 extern uint64_t TAG_PREFETCH_WINDOW;
+extern uint64_t TAG_THROTTLE_LIMIT; // the number of pending operations we allow before we stop prefetching
+				    // set this to 0 if you don't want to throttle
 
 // Paul Mod: NVDIMM Configuration values used for Tag Buffer Stuff
 extern uint64_t NUM_CHANNELS;

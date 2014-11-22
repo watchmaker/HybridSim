@@ -56,6 +56,7 @@ namespace HybridSim {
 	void TagBuffer::initializeSetTracking()
 	{
 		sets_accessed = vector<uint64_t>(NUM_TAG_SETS, 0);
+		sets_hit = vector<uint64_t>(NUM_TAG_SETS, 0);
 	}
 
 	// right now this just steps to keep the clock cycle count accurate for 
@@ -101,6 +102,11 @@ namespace HybridSim {
 				sets_accessed[tag_buffer_set] = sets_accessed[tag_buffer_set] + 1;
 			}
 
+			if(DEBUG_TAG_BUFFER)
+			{
+				sets_accessed[tag_buffer_set] = sets_accessed[tag_buffer_set] + 1;
+			}
+
 			// if we have an entry for this tag set
 			if(tag_buffer.find(tag_buffer_set) != tag_buffer.end())
 			{		
@@ -115,7 +121,9 @@ namespace HybridSim {
 					if(tagReplacement == tag_lru)
 					{
 						bool search_init = true;
-						uint64_t oldest_ts = 0;					
+						bool found_used = false;
+						uint64_t oldest_ts = 0;	
+						uint64_t oldest_used = 0;
 						// search the tag buffer for the oldest 
 						// no need to write back though, they are just tags
 						for(std::list<tag_line>::iterator it = tag_buffer[tag_buffer_set].begin(); it != tag_buffer[tag_buffer_set].end(); it++)
@@ -126,9 +134,18 @@ namespace HybridSim {
 							// also make sure that we didn't just add this thing in
 							if((it->ts < oldest_ts && it->ts != currentClockCycle) || search_init)
 							{
+								if(search_init)
+									oldest_used = it->ts;
 								search_init = false; 
 								oldest_ts = it->ts;
+								if(found_used == false)
+									victim = it;
+							}
+							if((it->ts < oldest_used && it->ts != currentClockCycle && it->used) || (victim->used == false && it->used == true))
+							{
+								oldest_used = it->ts;
 								victim = it;
+								found_used = true;
 							}
 						}
 						
@@ -427,6 +444,11 @@ namespace HybridSim {
 					debug_tag_buffer << "================\n\n";
 				}
 
+				if(DEBUG_TAG_BUFFER)
+				{
+					sets_hit[tag_buffer_set] = sets_hit[tag_buffer_set] + 1;
+				}
+
 				// TODO: Not sure if this is going to work, need to check it
 				(*it).used = true;
 				// update the timestamp (not sure if this is the right way to go about this)
@@ -452,6 +474,13 @@ namespace HybridSim {
 		for(uint64_t j = 0; j < NUM_TAG_SETS; j++)
 		{
 			debug_tag_buffer << "Set " << j << " : " << sets_accessed[j] << "\n";
+		}
+
+		debug_tag_buffer << "\n\n********************************************\n";
+		debug_tag_buffer << ">>>>>>> Final Tag Set Hit Counts <<<<<<<<\n";
+		for(uint64_t j = 0; j < NUM_TAG_SETS; j++)
+		{
+			debug_tag_buffer << "Set " << j << " : " << sets_hit[j] << "\n";
 		}
 		debug_tag_buffer.flush();
 		debug_tag_buffer.close();

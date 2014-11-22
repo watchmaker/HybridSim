@@ -67,6 +67,7 @@ namespace HybridSim
 		unordered_map<uint64_t, list<tag_line> > tag_buffer;
 		ofstream debug_tag_buffer;
 		vector<uint64_t> sets_accessed;
+		vector<uint64_t> sets_hit;
 		
 	};
 }
