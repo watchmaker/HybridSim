@@ -316,7 +316,7 @@ namespace HybridSim {
 
 
 		list<Transaction>::iterator it = trans_queue.begin();
-		while((it != trans_queue.end()) && (pending_pages.size() < NUM_SETS) && (check_queue) && (delay_counter == 0))
+		while((it != trans_queue.end()) && (pending_pages.size() < NUM_SETS) && (check_queue) && (delay_counter == 0) && (!active_transaction_flag))
 		{
 			// Compute the page address.
 			uint64_t back_addr = ALIGN((*it).address);
