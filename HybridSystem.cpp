@@ -127,6 +127,12 @@ namespace HybridSim {
 		restoreCacheTable();
 
 		cout << "cache pages are " << ACTUAL_CACHE_PAGES << "\n";
+		if(ENABLE_TAG_BUFFER == 0 && ENABLE_TAG_PREFETCH == 1)
+		{
+			cout << "WARNING PREFETCHING TAGS BUT NO BUFFER TO STORE THEM \n";
+			cout << ">>> Turning off Prefetching";
+			ENABLE_TAG_PREFETCH = 0;
+		}
 
 		// Load prefetch data.
 		if (ENABLE_PERFECT_PREFETCHING)
@@ -1008,7 +1014,7 @@ namespace HybridSim {
 
 			// first see if we alrady have the tags for this set
 			uint64_t had_tags = tbuff.haveTags(set_index);
-			if(had_tags != 0)
+			if(had_tags != 0 && ENABLE_TAG_BUFFER == 1)
 			{
 				// if we do have the tags then there's no need to issue a tag lookup to the cache
 				// so we just go directly to the check tags phase

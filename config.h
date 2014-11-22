@@ -212,6 +212,7 @@ extern uint64_t NUM_TAG_WAYS;
 extern uint64_t NUM_TAG_SETS;
 extern uint64_t SETS_PER_LINE;
 extern uint64_t SETS_PER_TAG_GROUP;
+extern uint64_t ENABLE_TAG_BUFFER;
 extern uint64_t ENABLE_SET_CHANNEL_INTERLEAVE;
 extern uint64_t ENABLE_TAG_PREFETCH;
 extern uint64_t TAG_PREFETCH_WINDOW;
