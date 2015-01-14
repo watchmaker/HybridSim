@@ -314,7 +314,7 @@ namespace HybridSim {
 		// Used to see if any work is done on this cycle.
 		bool sent_transaction = false;
 
-
+		//cout << "trans queue now has size " << trans_queue.size() << "\n";
 		list<Transaction>::iterator it = trans_queue.begin();
 		while((it != trans_queue.end()) && (pending_pages.size() < NUM_SETS) && (check_queue) && (delay_counter == 0) && (!active_transaction_flag))
 		{
@@ -363,6 +363,14 @@ namespace HybridSim {
 			}
 		}
 
+		// If there is nothing to do, wait until a new transaction arrives or a pending set is released.
+		// Only set check_queue to false if the delay counter is 0. Otherwise, a transaction that arrives
+		// while delay_counter is running might get missed and stuck in the queue.
+		if ((sent_transaction == false) && (delay_counter == 0))
+		{
+			this->check_queue = false;
+		}
+
 		// See if there are any transactions ready to be processed.
 		// moved this to right after the active transaction is set because there were situations
 		// where we could have the pending state change between setting up a transaction and when it was
@@ -371,14 +379,6 @@ namespace HybridSim {
 		{
 				ProcessTransaction(active_transaction);
 				active_transaction_flag = false;
-		}
-
-		// If there is nothing to do, wait until a new transaction arrives or a pending set is released.
-		// Only set check_queue to false if the delay counter is 0. Otherwise, a transaction that arrives
-		// while delay_counter is running might get missed and stuck in the queue.
-		if ((sent_transaction == false) && (delay_counter == 0))
-		{
-			this->check_queue = false;
 		}
 
 
@@ -507,6 +507,7 @@ namespace HybridSim {
 
 		trans_queue.push_back(trans);
 		trans_queue_size++;
+	
 
 		if ((trans.transactionType == PREFETCH) || (trans.transactionType == FLUSH))
 		{
@@ -1858,7 +1859,12 @@ namespace HybridSim {
 		// This is done immediately rather than waiting for callback.
 		// Only do this if it hasn't been sent already by the critical cache line first callback.
 		if (!p.callback_sent)
+		{
 			WriteDoneCallback(systemID, p.orig_addr, currentClockCycle);
+			if (DEBUG_CACHE)
+				cerr << currentClockCycle << ": " << "CACHE_WRITE callback for (" << p.back_addr << ", " << p.cache_addr << ")\n";
+		}
+		        
 
 		// Erase the page from the pending set.
 		// Note: the if statement is needed to ensure that the VictimRead operation (if it was invoked as part of a cache miss)
@@ -1882,7 +1888,7 @@ namespace HybridSim {
 
 		uint64_t set_index = SET_INDEX(cache_addr);
 		uint64_t back_address = BACK_ADDRESS(cur_line.tag, set_index);
-		contention_unlock(back_address, back_address, "FLUSH", false, 0, true, cache_addr);
+		contention_unlock(back_address, back_address, "FLUSH", false, 0, true, cache_addr);	
 	}
 
         uint64_t HybridSystem::VictimSelect(uint64_t set_index, uint64_t addr, uint64_t cur_address, cache_line cur_line, list<uint64_t> set_address_list)
@@ -2767,6 +2773,10 @@ namespace HybridSim {
 			// Restart queue checking.
 			this->check_queue = true;
 			pending_count -= 1;
+		}
+		else
+		{
+			cout << "something bad happened with the contention unlock \n";
 		}
 	}
 

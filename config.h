@@ -49,7 +49,7 @@
 // Debug flags.
 
 // Lots of output during cache operations. Goes to stdout.
-#define DEBUG_CACHE 0
+#define DEBUG_CACHE 1
 
 // Lots of output for debugging logging operations. Goes to debug.log.
 #define DEBUG_LOGGER 0		
