@@ -64,9 +64,8 @@ namespace HybridSim
 				TransactionCompleteCB *writeDone);
 		void mmio(uint64_t operation, uint64_t address);
 		void syncAll();
-		void CacheReadCallback(uint64_t id, uint64_t addr, uint64_t cycle, bool unmapped);
-		void CacheWriteCallback(uint64_t id, uint64_t addr, uint64_t cycle, bool unmapped);
-		void CacheCriticalLineCallback(uint64_t id, uint64_t addr, uint64_t cycle, bool unmapped);
+		void CacheReadCallback(uint id, uint64_t addr, uint64_t cycle);
+		void CacheWriteCallback(uint id, uint64_t addr, uint64_t cycle);
 
 		void BackReadCallback(uint id, uint64_t addr, uint64_t cycle);
 		void BackWriteCallback(uint id, uint64_t addr, uint64_t cycle);
@@ -168,10 +167,9 @@ namespace HybridSim
 		TransactionCompleteCB *WriteDone;
 		uint systemID;
 
-		NVDSim::NVDIMM *llcache;
-		NVDSim::NVDIMM *bbcache;
+		DRAMSim::DRAMSimInterface *llcache;
 
-		DRAMSim::MultiChannelMemorySystem *back;
+		DRAMSim::DRAMSimInterface *back;
 
 		unordered_map<uint64_t, cache_line> cache;
 

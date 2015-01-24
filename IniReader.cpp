@@ -100,9 +100,10 @@ uint64_t REPLACEMENT_PERIOD;
 uint64_t CYCLES_PER_SECOND = 667000000;
 
 // INI files
-string dram_ini = "ini/DDR3_micron_8M_8B_x8_sg15.ini";
-string nvdimm_ini = "ini/samsung_K9XXG08UXM(mod).ini";
-string sys_ini = "ini/system.ini";
+string cache_dram_ini = "ini/LPDDR3_micron.ini";
+string cache_sys_ini = "ini/cache_system.ini";
+string back_dram_ini = "ini/LPDDR3_micron.ini";
+string back_sys_ini = "ini/back_system.ini";
 
 // Save/Restore options
 uint64_t ENABLE_RESTORE = 0;
@@ -329,12 +330,14 @@ string NVDIMM_SAVE_FILE = "none";
 				convert_uint64_t(REPLACEMENT_PERIOD, value, key);
 			else if (key.compare("CYCLES_PER_SECOND") == 0)
 				convert_uint64_t(CYCLES_PER_SECOND, value, key);
-			else if (key.compare("dram_ini") == 0)
-				dram_ini = value;
-			else if (key.compare("nvdimm_ini") == 0)
-				nvdimm_ini = value;
-			else if (key.compare("sys_ini") == 0)
-				sys_ini = value;
+			else if (key.compare("cache_dram_ini") == 0)
+				cache_dram_ini = value;
+			else if (key.compare("cache_sys_ini") == 0)
+				cache_sys_ini = value;
+			else if (key.compare("back_dram_ini") == 0)
+				back_dram_ini = value;
+			else if (key.compare("back_sys_ini") == 0)
+				back_sys_ini = value;
 			else if (key.compare("ENABLE_RESTORE") == 0)
 				convert_uint64_t(ENABLE_RESTORE, value, key);
 			else if (key.compare("ENABLE_SAVE") == 0)
@@ -353,81 +356,6 @@ string NVDIMM_SAVE_FILE = "none";
 				cerr << "This could either be due to an illegal key or the incorrect value type for a key\n";
 				abort();
 			}
-		}
-	}
-
-	void IniReader::read_nv_ini(string inifile)
-	{
-		ifstream inFile;
-		char tmp[256];
-		string tmp2;
-		list<string> lines;
-
-		inFile.open(inifile);
-		if (!inFile.is_open())
-		{
-			cerr << "ERROR: Failed to load HybridSim's Ini file: " << inifile << "\n";
-			abort();
-		}
-
-		while(!inFile.eof())
-		{
-			inFile.getline(tmp, 256);
-			tmp2 = (string)tmp;
-
-			// Filter comments out.
-			size_t pos = tmp2.find("#");
-			tmp2 = tmp2.substr(0, pos);
-
-			// Strip whitespace from the ends.
-			tmp2 = strip(tmp2);
-
-			// Filter newlines out.
-			if (tmp2.empty())
-				continue;
-
-			// Add it to the lines list.
-			lines.push_back(tmp2);
-		}
-		inFile.close();
-
-		list<string>::iterator it;
-		for (it = lines.begin(); it != lines.end(); it++)
-		{
-			list<string> split_line = split((*it), "=", 2);
-
-			if (split_line.size() != 2)
-			{
-				cerr << "ERROR: Parsing ini failed on line: " << (*it) << "\n";
-				cerr << "There should be exactly one '=' per line\n";
-				abort();
-			}
-
-			string key = split_line.front();
-			string value = split_line.back();
-
-			// Place the value into the appropriate global.
-			if (key.compare("NUM_PACKAGES") == 0)
-			{
-				convert_uint64_t(NUM_CHANNELS, value, key);
-			}
-			else if (key.compare("DIES_PER_PACKAGE") == 0)
-			{
-				convert_uint64_t(RANKS_PER_CHANNEL, value, key);
-			}
-			else if (key.compare("PLANES_PER_DIE") == 0)
-			{
-				convert_uint64_t(BANKS_PER_RANK, value, key);
-			}
-			else if (key.compare("VIRTUAL_BLOCKS_PER_PLANE") == 0)
-			{
-				convert_uint64_t(ROWS_PER_BANK, value, key);
-			}
-			else if (key.compare("PAGES_PER_BLOCK") == 0)
-			{
-				convert_uint64_t(COL_PER_ROW, value, key);
-			}
-			// everything else in that file we don't care about right now
 		}
 	}
 }

@@ -157,7 +157,7 @@ using DRAMSim::SimulatorObject;
 //using DRAMSim::DATA_WRITE;
 
 // Include external interface for NVDIMM.
-#include <NVDIMMSim.h>
+//#include <NVDIMMSim.h>
 
 // Include the Transaction type (which is needed below).
 #include "Transaction.h"
@@ -273,9 +273,10 @@ extern uint64_t REPLACEMENT_PERIOD; //Used for some replacement policies that ha
 extern uint64_t CYCLES_PER_SECOND;
 
 // INI files
-extern string dram_ini;
-extern string nvdimm_ini;
-extern string sys_ini;
+extern string cache_dram_ini;
+extern string cache_sys_ini;
+extern string back_dram_ini;
+extern string back_sys_ini;
 
 // Save/Restore options
 extern uint64_t ENABLE_RESTORE;
