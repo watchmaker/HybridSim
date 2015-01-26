@@ -2719,7 +2719,7 @@ namespace HybridSim {
 		}
 		else
 		{
-			cout << "something bad happened with the contention unlock \n";
+			//cout << "something bad happened with the contention unlock \n";
 		}
 	}
 
