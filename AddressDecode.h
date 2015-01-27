@@ -75,6 +75,9 @@ namespace HybridSim
 			uint64_t rowBitWidth;
 			uint64_t colBitWidth;
 			uint64_t colOffset;
+			uint64_t byteOffset;
+			uint64_t colLowBitWidth;
+			uint64_t colHighBitWidth;
 	};
 }
 

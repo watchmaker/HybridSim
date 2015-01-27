@@ -45,6 +45,10 @@ AddressDecode::AddressDecode()
 	rowBitWidth = hybridsim_log2(ROWS_PER_BANK);
 	colBitWidth = hybridsim_log2(COL_PER_ROW);
 	colOffset = hybridsim_log2(PAGE_SIZE);
+	byteOffset = hybridsim_log2(8);
+
+	colLowBitWidth = 3;
+	colHighBitWidth = colBitWidth - colLowBitWidth;
 
 	if(DEBUG_COMBO_TAG)
 	{
@@ -54,6 +58,8 @@ AddressDecode::AddressDecode()
 		cerr << "row bits " << rowBitWidth << "\n";
 		cerr << "col bits " << colBitWidth << "\n";
 		cerr << "col offset " << colOffset << "\n";
+		cerr << "col low offset " << colLowBitWidth << "\n";
+		cerr << "col high offset " <<colHighBitWidth << "\n";
 	}
 }
 
@@ -64,7 +70,8 @@ AddressSet AddressDecode::getDecode(uint64_t addr)
 
 	if(hybridsim_check_power2(ROWS_PER_BANK))
 	{
-		physicalAddress = addr >> colOffset;
+		physicalAddress = addr >> byteOffset;
+		physicalAddress = addr >> colLowBitWidth;
 		
 		tempA = physicalAddress;
 		physicalAddress = physicalAddress >> channelBitWidth;
@@ -87,8 +94,8 @@ AddressSet AddressDecode::getDecode(uint64_t addr)
 		decoded_addr.row = tempA ^ tempB;
 
 		tempA = physicalAddress;
-		physicalAddress = physicalAddress >> colBitWidth;
-		tempB = physicalAddress << colBitWidth;
+		physicalAddress = physicalAddress >> colHighBitWidth;
+		tempB = physicalAddress << colHighBitWidth;
 		decoded_addr.column = tempA ^ tempB;	
 	}
 	else
