@@ -2495,8 +2495,9 @@ namespace HybridSim {
 		{
 			log.print();
 		
-			// Tell NVDIMM to print logs now
-			//llcache->saveStats();
+			// Tell DRAMSim to print logs now
+			llcache->printStats(true);
+			back->printStats(true);
 
 			if(DEBUG_COMBO_TAG)
 			{
