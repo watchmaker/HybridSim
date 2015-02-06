@@ -171,7 +171,7 @@ namespace HybridSim
 		NVDSim::NVDIMM *llcache;
 		NVDSim::NVDIMM *bbcache;
 
-		DRAMSim::MultiChannelMemorySystem *back;
+		DRAMSim::DRAMSimInterface *back;
 
 		unordered_map<uint64_t, cache_line> cache;
 
@@ -210,6 +210,7 @@ namespace HybridSim
 
 		// Decoder is used to decode addresses for the combo tag associativity implementation
 		AddressDecode decoder;
+		uint64_t totalBitWidth;
 
 		// Tag Buffer is used to store tags that have been fetched from the main memory for a short time
 		TagBuffer tbuff;

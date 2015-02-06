@@ -89,9 +89,10 @@ namespace HybridSim {
 
 		cerr << "Creating Backing Store using DRAMSim with " << dram_ini << "\n";
 		uint64_t dram_size = (TOTAL_PAGES * PAGE_SIZE) >> 20;
+		DRAMSim::CSVWriter &CSVOut = DRAMSim::CSVWriter::GetCSVWriterInstance("cvs_out"); 
 		dram_size = (dram_size == 0) ? 1 : dram_size; // DRAMSim requires a minimum of 1 MB, even if HybridSim isn't going to use it.
 		dram_size = (OVERRIDE_DRAM_SIZE == 0) ? dram_size : OVERRIDE_DRAM_SIZE; // If OVERRIDE_DRAM_SIZE is non-zero, then use it.
-		back = DRAMSim::getMemorySystemInstance(dram_ini, sys_ini, inipathPrefix, "resultsfilename", dram_size);
+		back = DRAMSim::getMemorySystemInstance(dram_ini, sys_ini, inipathPrefix, "resultsfilename", dram_size, CSVOut);
 		cerr << "Done with creating memories" << endl;
 		
 		// Set up the callbacks for NVDIMM.
@@ -105,7 +106,7 @@ namespace HybridSim {
 		typedef DRAMSim::Callback <HybridSystem, void, uint, uint64_t, uint64_t> dramsim_callback_t;
 		DRAMSim::TransactionCompleteCB *read_cb = new dramsim_callback_t(this, &HybridSystem::BackReadCallback);
 		DRAMSim::TransactionCompleteCB *write_cb = new dramsim_callback_t(this, &HybridSystem::BackWriteCallback);
-		back->RegisterCallbacks(read_cb, write_cb, NULL);
+		back->registerCallbacks(read_cb, write_cb, NULL);
 
 		decoder = AddressDecode();
 		if(DEBUG_COMBO_TAG || DEBUG_TAG_BUFFER)
@@ -121,6 +122,8 @@ namespace HybridSim {
 
 		// No active transaction to start with.
 		active_transaction_flag = false;
+
+		totalBitWidth = hybridsim_log2((TOTAL_PAGES*PAGE_SIZE));
 
 		// Call the restore cache state function.
 		// If ENABLE_RESTORE is set, then this will fill the cache table.
@@ -501,6 +504,13 @@ namespace HybridSim {
 
 				log.mmio_remapped();
 			}
+		}
+
+		// adjust the address so that it is not too large for our memory system
+		if(trans.address > (TOTAL_PAGES*PAGE_SIZE))
+		{
+			uint64_t temp_address = trans.address << (64-(totalBitWidth-1));
+			trans.address = temp_address >> (64-(totalBitWidth-1));
 		}
 
 		pending_count += 1;
@@ -2554,6 +2564,7 @@ namespace HybridSim {
 		
 			// Tell NVDIMM to print logs now
 			llcache->saveStats();
+			back->printStats(true);
 
 			if(DEBUG_COMBO_TAG)
 			{
