@@ -118,6 +118,8 @@ namespace HybridSim {
 		// No active transaction to start with.
 		active_transaction_flag = false;
 
+		totalBitWidth = hybridsim_log2((TOTAL_PAGES*PAGE_SIZE));
+
 		// Call the restore cache state function.
 		// If ENABLE_RESTORE is set, then this will fill the cache table.
 		restoreCacheTable();
@@ -497,6 +499,13 @@ namespace HybridSim {
 
 				log.mmio_remapped();
 			}
+		}
+
+		// adjust the address so that it is not too large for our memory system
+		if(trans.address > (TOTAL_PAGES*PAGE_SIZE))
+		{
+			uint64_t temp_address = trans.address << (64-(totalBitWidth-1));
+			trans.address = temp_address >> (64-(totalBitWidth-1));
 		}
 
 		pending_count += 1;
