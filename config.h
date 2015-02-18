@@ -233,7 +233,7 @@ extern uint64_t COL_PER_ROW;
 // number of accesses at the front of a row that are reserved for tags
 #define TAG_OFFSET ((SETS_PER_LINE - EXTRA_SETS_FOR_ZERO_GROUP) / SETS_PER_TAG_GROUP) 
 // number of accesses that are wasted  because we can't always fill a row evenly with tags and data
-#define WASTE_OFFSET ((COL_PER_ROW / PAGE_SIZE) - ((SETS_PER_LINE / SETS_PER_TAG_GROUP) + (SETS_PER_LINE * SET_SIZE)))
+#define WASTE_OFFSET (COL_PER_ROW - ((SETS_PER_LINE / SETS_PER_TAG_GROUP) + (SETS_PER_LINE * SET_SIZE)))
 // update the cache page variable to reflect the wasted cache pages due to tag storage
 #define NUM_ROWS (NUM_CHANNELS * RANKS_PER_CHANNEL * BANKS_PER_RANK * ROWS_PER_BANK)
 #define COMBO_CACHE_PAGES (CACHE_PAGES - ((NUM_ROWS) * (TAG_OFFSET + WASTE_OFFSET)))

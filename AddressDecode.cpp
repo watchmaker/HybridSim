@@ -70,9 +70,10 @@ AddressSet AddressDecode::getDecode(uint64_t addr)
 
 	if(hybridsim_check_power2(ROWS_PER_BANK))
 	{
-		physicalAddress = addr >> byteOffset;
-		physicalAddress = addr >> colLowBitWidth;
-		
+		//physicalAddress = addr >> byteOffset;
+		//physicalAddress = addr >> colLowBitWidth;
+		physicalAddress = addr >> colOffset;
+
 		tempA = physicalAddress;
 		physicalAddress = physicalAddress >> channelBitWidth;
 		tempB = physicalAddress << channelBitWidth;
@@ -94,12 +95,15 @@ AddressSet AddressDecode::getDecode(uint64_t addr)
 		decoded_addr.row = tempA ^ tempB;
 
 		tempA = physicalAddress;
-		physicalAddress = physicalAddress >> colHighBitWidth;
-		tempB = physicalAddress << colHighBitWidth;
+		//physicalAddress = physicalAddress >> colHighBitWidth;
+		//tempB = physicalAddress << colHighBitWidth;
+		physicalAddress = physicalAddress >> colBitWidth;
+		tempB = physicalAddress << colBitWidth;
 		decoded_addr.column = tempA ^ tempB;	
 	}
 	else
 	{
+		cout << "WARNING: USING NON-POWER OF TWO DECODE \n";
 		physicalAddress = addr;
 
 		physicalAddress /= PAGE_SIZE;

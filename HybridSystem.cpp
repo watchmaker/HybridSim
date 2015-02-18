@@ -81,7 +81,11 @@ namespace HybridSim {
 		RANKS_PER_CHANNEL = cache_dims[1];
 		BANKS_PER_RANK = cache_dims[2];
 		ROWS_PER_BANK = cache_dims[3];
-		COL_PER_ROW = cache_dims[4];
+		COL_PER_ROW = (cache_dims[4] / PAGE_SIZE);
+
+		cout << "the org params from the cache are \n";
+		cout << "chans: " << NUM_CHANNELS << " ranks: " << RANKS_PER_CHANNEL << " banks: " << BANKS_PER_RANK << " rows: " << ROWS_PER_BANK << " cols: " << COL_PER_ROW << "\n";
+		
 		
 
 		cerr << "Creating Backing Store using DRAMSim with device ini " << back_dram_ini << " and system ini " << back_sys_ini << "\n";
@@ -124,6 +128,8 @@ namespace HybridSim {
 		// If ENABLE_RESTORE is set, then this will fill the cache table.
 		restoreCacheTable();
 
+		cout << "num rows are " << NUM_ROWS << "\n";
+		cout << "base cache pages are " << CACHE_PAGES << "\n";
 		cout << "cache pages are " << ACTUAL_CACHE_PAGES << "\n";
 		if(ENABLE_TAG_BUFFER == 0 && ENABLE_TAG_PREFETCH == 1)
 		{
