@@ -179,6 +179,8 @@ extern uint64_t ENABLE_SET_ACCESSES_LOG;
 extern uint64_t ENABLE_PAGES_USED_LOG;
 extern uint64_t ENABLE_CONTENTION_LOG;
 extern uint64_t ENABLE_MISSED_PAGE_LOG;
+extern uint64_t ENABLE_STRIDE_LOG;
+extern uint64_t ENABLE_TAG_BUFFER_USAGE_LOG;
 extern uint64_t EPOCH_LENGTH;
 extern uint64_t HISTOGRAM_BIN;
 extern uint64_t HISTOGRAM_MAX;
@@ -238,6 +240,8 @@ extern uint64_t COL_PER_ROW;
 #define NUM_ROWS (NUM_CHANNELS * RANKS_PER_CHANNEL * BANKS_PER_RANK * ROWS_PER_BANK)
 #define COMBO_CACHE_PAGES (CACHE_PAGES - ((NUM_ROWS) * (TAG_OFFSET + WASTE_OFFSET)))
 #define ACTUAL_CACHE_PAGES (assocVersion == combo_tag ? COMBO_CACHE_PAGES : CACHE_PAGES)
+
+#define VICTIM_LIST_LENGTH 64
 
 enum TagReplacement
 {
@@ -337,6 +341,7 @@ class tag_line
 	bool valid;
 	bool used; // this used for NRU replacement
 	bool prefetched; // tracks whether this tag was part of an explicitly prefetched tag trans
+	bool demand; // this tracks whether this tag was the one we wanted
 	uint64_t ts;
 
  	tag_line() : set_index(0), valid(false), used(false), prefetched(false), ts(0) {}

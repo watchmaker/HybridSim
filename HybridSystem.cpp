@@ -109,9 +109,13 @@ namespace HybridSim {
 		back->registerCallbacks(read_cb, write_cb, NULL);
 
 		decoder = AddressDecode();
-		if(DEBUG_COMBO_TAG || DEBUG_TAG_BUFFER)
+		if(DEBUG_COMBO_TAG || DEBUG_TAG_BUFFER || ENABLE_TAG_BUFFER_USAGE_LOG)
 		{
 			tbuff.initializeSetTracking();
+		}
+		if(ENABLE_STRIDE_LOG)
+		{
+			tbuff.initializeStrideTracking();
 		}
 
 		// Need to check the queue when we start.
@@ -1031,10 +1035,13 @@ namespace HybridSim {
 				// so we just go directly to the check tags phase
 				if(ENABLE_LOGGER)
 				{
-					if(had_tags == 2)
+					if(had_tags == 3)
 						log.tag_buffer_prefetch_hit();
+					else if(had_tags == 2)
+						log.tag_buffer_free_hit();
 					else
-						log.tag_buffer_hit();
+						log.tag_buffer_demand_hit();
+						
 				}
 				HitCheck(trans, false);
 			}
@@ -1683,7 +1690,7 @@ namespace HybridSim {
 					{
 						tags[i] = set_index_start+(i*NUM_CHANNELS);
 					}
-					tbuff.addTags(tags, false);					
+					tbuff.addTags(tags, false, set_index);					
 				}
 				else
 				{
@@ -1693,7 +1700,7 @@ namespace HybridSim {
 					{
 						tags[i] = set_index_start+(i*NUM_CHANNELS);
 					}
-					tbuff.addTags(tags, false);						
+					tbuff.addTags(tags, false, set_index);						
 				}
 			}
 			else
@@ -1708,7 +1715,7 @@ namespace HybridSim {
 					{
 						tags[i] = set_index_start+i;
 					}
-					tbuff.addTags(tags, false);					
+					tbuff.addTags(tags, false, set_index);					
 				}
 				else
 				{
@@ -1718,7 +1725,7 @@ namespace HybridSim {
 					{
 						tags[i] = set_index_start+i;
 					}
-					tbuff.addTags(tags, false);						
+					tbuff.addTags(tags, false, set_index);						
 				}
 			}
 			
@@ -1743,7 +1750,7 @@ namespace HybridSim {
 					{
 						tags[i] = set_index_start+(i*NUM_CHANNELS);
 					}
-					tbuff.addTags(tags, true);					
+					tbuff.addTags(tags, true, set_index);					
 				}
 				else
 				{
@@ -1753,7 +1760,7 @@ namespace HybridSim {
 					{
 						tags[i] = set_index_start+(i*NUM_CHANNELS);
 					}
-					tbuff.addTags(tags, true);						
+					tbuff.addTags(tags, true, set_index);						
 				}
 			}
 			else
@@ -1768,7 +1775,7 @@ namespace HybridSim {
 					{
 						tags[i] = set_index_start+i;
 					}
-					tbuff.addTags(tags, true);					
+					tbuff.addTags(tags, true, set_index);					
 				}
 				else
 				{
@@ -1778,7 +1785,7 @@ namespace HybridSim {
 					{
 						tags[i] = set_index_start+i;
 					}
-					tbuff.addTags(tags, true);						
+					tbuff.addTags(tags, true, set_index);						
 				}
 			}
 
@@ -2566,9 +2573,14 @@ namespace HybridSim {
 			llcache->saveStats();
 			back->printStats(true);
 
-			if(DEBUG_COMBO_TAG)
+			if(DEBUG_COMBO_TAG || ENABLE_TAG_BUFFER_USAGE_LOG)
 			{
 				tbuff.printBufferUsage();
+			}
+
+			if(ENABLE_STRIDE_LOG)
+			{
+				tbuff.printStrides();
 			}
 		}
 	}
