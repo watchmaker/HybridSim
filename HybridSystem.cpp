@@ -70,9 +70,10 @@ namespace HybridSim {
 		systemID = id;
 		cerr << "Creating DRAM with " << dram_ini << "\n";
 		uint64_t dram_size = (CACHE_PAGES * PAGE_SIZE) >> 20;
+		DRAMSim::CSVWriter &CSVOut = DRAMSim::CSVWriter::GetCSVWriterInstance("cvs_out"); 
 		dram_size = (dram_size == 0) ? 1 : dram_size; // DRAMSim requires a minimum of 1 MB, even if HybridSim isn't going to use it.
 		dram_size = (OVERRIDE_DRAM_SIZE == 0) ? dram_size : OVERRIDE_DRAM_SIZE; // If OVERRIDE_DRAM_SIZE is non-zero, then use it.
-		dram = DRAMSim::getMemorySystemInstance(dram_ini, sys_ini, inipathPrefix, "resultsfilename", dram_size);
+		dram = DRAMSim::getMemorySystemInstance(dram_ini, sys_ini, inipathPrefix, "resultsfilename", dram_size, CSVOut);
 
 		cerr << "Creating Flash with " << flash_ini << "\n";
 		flash = NVDSim::getNVDIMMInstance(1,flash_ini,"ini/def_system.ini",inipathPrefix,"");
@@ -82,7 +83,7 @@ namespace HybridSim {
 		typedef DRAMSim::Callback <HybridSystem, void, uint, uint64_t, uint64_t> dramsim_callback_t;
 		DRAMSim::TransactionCompleteCB *read_cb = new dramsim_callback_t(this, &HybridSystem::DRAMReadCallback);
 		DRAMSim::TransactionCompleteCB *write_cb = new dramsim_callback_t(this, &HybridSystem::DRAMWriteCallback);
-		dram->RegisterCallbacks(read_cb, write_cb, NULL);
+		dram->registerCallbacks(read_cb, write_cb, NULL);
 
 		// Set up the callbacks for NVDIMM.
 		typedef NVDSim::Callback <HybridSystem, void, uint64_t, uint64_t, uint64_t, bool> nvdsim_callback_t;
