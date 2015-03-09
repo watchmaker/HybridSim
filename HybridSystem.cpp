@@ -93,6 +93,8 @@ namespace HybridSim {
 		dram_size = (dram_size == 0) ? 1 : dram_size; // DRAMSim requires a minimum of 1 MB, even if HybridSim isn't going to use it.
 		dram_size = (OVERRIDE_DRAM_SIZE == 0) ? dram_size : OVERRIDE_DRAM_SIZE; // If OVERRIDE_DRAM_SIZE is non-zero, then use it.
 		back = DRAMSim::getMemorySystemInstance(dram_ini, sys_ini, inipathPrefix, "resultsfilename", dram_size, CSVOut);
+		// set the CPU clock frequency
+		back->setCPUClockSpeed(CYCLES_PER_SECOND);
 		cerr << "Done with creating memories" << endl;
 		
 		// Set up the callbacks for NVDIMM.
