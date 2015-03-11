@@ -1829,6 +1829,9 @@ namespace HybridSim {
 		if (ENABLE_LOGGER)
 		{
 			log.print();
+
+			// Tell DRAMSim to print logs now too
+			dram->printStats();
 		
 			// Tell NVDIMM to print logs now
 			flash->saveStats();
