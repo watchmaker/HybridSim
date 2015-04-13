@@ -513,11 +513,11 @@ namespace HybridSim {
 		}
 
 		// adjust the address so that it is not too large for our memory system
-		if(trans.address > (TOTAL_PAGES*PAGE_SIZE))
-		{
-			uint64_t temp_address = trans.address << (64-(totalBitWidth-1));
-			trans.address = temp_address >> (64-(totalBitWidth-1));
-		}
+		//if(trans.address > (TOTAL_PAGES*PAGE_SIZE))
+		//{
+		//	uint64_t temp_address = trans.address << (64-(totalBitWidth-1));
+		//	trans.address = temp_address >> (64-(totalBitWidth-1));
+		//}
 
 		pending_count += 1;
 
