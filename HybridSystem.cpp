@@ -89,10 +89,9 @@ namespace HybridSim {
 
 		cerr << "Creating Backing Store using DRAMSim with " << dram_ini << "\n";
 		uint64_t dram_size = (TOTAL_PAGES * PAGE_SIZE) >> 20;
-		DRAMSim::CSVWriter &CSVOut = DRAMSim::CSVWriter::GetCSVWriterInstance("cvs_out"); 
 		dram_size = (dram_size == 0) ? 1 : dram_size; // DRAMSim requires a minimum of 1 MB, even if HybridSim isn't going to use it.
 		dram_size = (OVERRIDE_DRAM_SIZE == 0) ? dram_size : OVERRIDE_DRAM_SIZE; // If OVERRIDE_DRAM_SIZE is non-zero, then use it.
-		back = DRAMSim::getMemorySystemInstance(dram_ini, sys_ini, inipathPrefix, "resultsfilename", dram_size, CSVOut);
+		back = DRAMSim::getMemorySystemInstance(dram_ini, sys_ini, inipathPrefix, "resultsfilename", dram_size);
 		// set the CPU clock frequency
 		back->setCPUClockSpeed(CYCLES_PER_SECOND);
 		cerr << "Done with creating memories" << endl;
@@ -424,7 +423,8 @@ namespace HybridSim {
 				isWrite = true;
 			else
 				isWrite = false;
-			not_full = back->addTransaction(isWrite, tmp.address);
+			DRAMSim::DRAMSimTransaction *dsim_trans = back->makeTransaction(isWrite, tmp.address);
+			not_full = back->addTransaction(dsim_trans);
 			if (not_full)
 			{
 				back_queue.pop_front();
