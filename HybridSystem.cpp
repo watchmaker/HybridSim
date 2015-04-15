@@ -70,10 +70,9 @@ namespace HybridSim {
 		systemID = id;
 		cerr << "Creating DRAM with " << dram_ini << "\n";
 		uint64_t dram_size = (CACHE_PAGES * PAGE_SIZE) >> 20;
-		DRAMSim::CSVWriter &CSVOut = DRAMSim::CSVWriter::GetCSVWriterInstance("cvs_out"); 
 		dram_size = (dram_size == 0) ? 1 : dram_size; // DRAMSim requires a minimum of 1 MB, even if HybridSim isn't going to use it.
 		dram_size = (OVERRIDE_DRAM_SIZE == 0) ? dram_size : OVERRIDE_DRAM_SIZE; // If OVERRIDE_DRAM_SIZE is non-zero, then use it.
-		dram = DRAMSim::getMemorySystemInstance(dram_ini, sys_ini, inipathPrefix, "resultsfilename", dram_size, CSVOut);
+		dram = DRAMSim::getMemorySystemInstance(dram_ini, sys_ini, inipathPrefix, "resultsfilename", dram_size);
 
 		cerr << "Creating Flash with " << flash_ini << "\n";
 		flash = NVDSim::getNVDIMMInstance(1,flash_ini,"ini/def_system.ini",inipathPrefix,"");
@@ -351,7 +350,8 @@ namespace HybridSim {
 				isWrite = true;
 			else
 				isWrite = false;
-			not_full = dram->addTransaction(isWrite, tmp.address);
+			DRAMSim::DRAMSimTransaction *dsim_trans = dram->makeTransaction(isWrite, tmp.address);
+			not_full = dram->addTransaction(dsim_trans);
 			if (not_full)
 			{
 				dram_queue.pop_front();
