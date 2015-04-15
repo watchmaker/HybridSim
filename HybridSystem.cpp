@@ -70,9 +70,8 @@ namespace HybridSim {
 
 		systemID = id;		
 		cerr << "Creating Cache using DRAMSim with device ini " << cache_dram_ini << " and system ini " << cache_sys_ini << "\n";
-		DRAMSim::CSVWriter &Cache_CSVOut = DRAMSim::CSVWriter::GetCSVWriterInstance("cache_cvs_out"); 
 		uint64_t cache_size = (CACHE_PAGES * PAGE_SIZE) >> 20;
-		llcache = DRAMSim::getMemorySystemInstance(cache_dram_ini, cache_sys_ini, inipathPrefix, "cacheresultsfilename", cache_size, Cache_CSVOut);
+		llcache = DRAMSim::getMemorySystemInstance(cache_dram_ini, cache_sys_ini, inipathPrefix, "cacheresultsfilename", cache_size);
 	
 		std::vector<uint64_t> cache_dims = llcache->returnDimensions();
 		// Make sure that we have all of the dimensions that we need
@@ -89,11 +88,10 @@ namespace HybridSim {
 		
 
 		cerr << "Creating Backing Store using DRAMSim with device ini " << back_dram_ini << " and system ini " << back_sys_ini << "\n";
-		DRAMSim::CSVWriter &Back_CSVOut = DRAMSim::CSVWriter::GetCSVWriterInstance("back_cvs_out"); 
 		uint64_t back_size = (TOTAL_PAGES * PAGE_SIZE) >> 20;
 		back_size = (back_size == 0) ? 1 : back_size; // DRAMSim requires a minimum of 1 MB, even if HybridSim isn't going to use it.
 		back_size = (OVERRIDE_DRAM_SIZE == 0) ? back_size : OVERRIDE_DRAM_SIZE; // If OVERRIDE_DRAM_SIZE is non-zero, then use it.
-		back = DRAMSim::getMemorySystemInstance(back_dram_ini, back_sys_ini, inipathPrefix, "backresultsfilename", back_size, Back_CSVOut);
+		back = DRAMSim::getMemorySystemInstance(back_dram_ini, back_sys_ini, inipathPrefix, "backresultsfilename", back_size);
 		cerr << "Done with creating memories" << endl;
 		
 		// Set up the callbacks for Cache DRAM.
@@ -398,7 +396,8 @@ namespace HybridSim {
 				isWrite = true;
 			else
 				isWrite = false;
-			not_full = llcache->addTransaction(isWrite, tmp.address);
+			DRAMSim::DRAMSimTransaction *dsim_trans = back->makeTransaction(isWrite, tmp.address);
+			not_full = llcache->addTransaction(dsim_trans);
 			if (not_full)
 			{
 				cache_queue.pop_front();
@@ -419,7 +418,8 @@ namespace HybridSim {
 				isWrite = true;
 			else
 				isWrite = false;
-			not_full = back->addTransaction(isWrite, tmp.address);
+			DRAMSim::DRAMSimTransaction *dsim_trans = back->makeTransaction(isWrite, tmp.address);
+			not_full = back->addTransaction(dsim_trans);
 			if (not_full)
 			{
 				back_queue.pop_front();
