@@ -351,7 +351,10 @@ namespace HybridSim {
 			else
 				isWrite = false;
 			DRAMSim::DRAMSimTransaction *dsim_trans = dram->makeTransaction(isWrite, tmp.address);
-			not_full = dram->addTransaction(dsim_trans);
+			if(dsim_trans != NULL)
+				not_full = dram->addTransaction(dsim_trans);
+			else
+				not_full = false;
 			if (not_full)
 			{
 				dram_queue.pop_front();
