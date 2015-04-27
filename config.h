@@ -249,7 +249,9 @@ enum TagReplacement
 	tag_fifo,
 	tag_random,
 	tag_mru,
-	tag_lrnu
+	tag_lrnu,
+	tag_uflra,
+	tag_nnn
 };
 extern string TAG_REPLACEMENT;
 extern TagReplacement tagReplacement; 

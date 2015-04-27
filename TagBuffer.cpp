@@ -59,6 +59,19 @@ namespace HybridSim {
 
 		sets_accessed = vector<uint64_t>(NUM_TAG_SETS, 0);
 		sets_hit = vector<uint64_t>(NUM_TAG_SETS, 0);
+
+		// this uses up memory and didn't tell us anything interesting now, but it might in the future
+		// Init the reuse histogram
+		/*for (uint64_t i = 0; i <= 200; i += 20)
+		{
+			reuse_histogram[i] = 0;
+		}
+		reuse_average = 0;
+		num_sets_accessed = 0;*/
+
+		// track how many tags we bring in and how many are used
+		num_tags_buffered = 0;
+		num_tags_used = 0;
 	}
 
 	void TagBuffer::initializeStrideTracking()
@@ -93,6 +106,12 @@ namespace HybridSim {
 		{
 			debug_tag_buffer << "ADDING TAGS";
 			debug_tag_buffer << "-----------------\n";
+		}
+
+
+		if(ENABLE_TAG_BUFFER_USAGE_LOG)
+		{
+			num_tags_buffered += tags.size();
 		}
 
 		//cout << "\nadding tags \n==========\n";
@@ -135,13 +154,14 @@ namespace HybridSim {
 					// have in place for general cache replacement
 					// TODO: move these functions and the other replacement functions to some common object
 					std::list<tag_line>::iterator victim = tag_buffer[tag_buffer_set].begin();
-					// LRU replacement based on time stamps
-					if(tagReplacement == tag_lru)
+					// UF_LRA Replacement (Used First - Least Recently Added)
+					// NNN Replacement (Not Nearest Neighbors) - extension on UF_LRA to protect adjacent sets from eviction as well
+					// sort've like LRU replacement 
+					if(tagReplacement == tag_uflra || tagReplacement == tag_nnn)
 					{
 						bool search_init = true;
 						bool found_used = false;
-						uint64_t oldest_ts = 0;	
-						uint64_t oldest_used = 0;
+						uint64_t oldest_ts = 0;		
 						// search the tag buffer for the oldest 
 						// no need to write back though, they are just tags
 						for(std::list<tag_line>::iterator it = tag_buffer[tag_buffer_set].begin(); it != tag_buffer[tag_buffer_set].end(); it++)
@@ -150,20 +170,99 @@ namespace HybridSim {
 							//second is the actual tag line structure with the time stamp
 							// we do less than here cause older time stamps will be smaller
 							// also make sure that we didn't just add this thing in
-							if((it->ts < oldest_ts && it->ts != currentClockCycle) || search_init)
+							if(search_init)
 							{
-								if(search_init)
-									oldest_used = it->ts;
 								search_init = false; 
 								oldest_ts = it->ts;
-								if(found_used == false)
-									victim = it;
+								victim = it;
+								if(it->used == true)
+									found_used = true;
 							}
-							if((it->ts < oldest_used && it->ts != currentClockCycle && it->used) || (victim->used == false && it->used == true))
+							else
+							{
+								if(found_used == false)
+								{
+									if(it->used == true)
+									{
+										oldest_ts = it->ts;
+										found_used = true;
+										victim = it;
+									}
+									else if(it->ts < oldest_ts && it->ts != currentClockCycle)
+									{
+										oldest_ts = it->ts;
+										victim = it;
+									}
+								}
+								else if(it->used == true)								     
+								{
+									if(it->ts < oldest_ts && it->ts != currentClockCycle)
+									{
+										oldest_ts = it->ts;
+										victim = it;				
+									}
+								}
+						       
+							}
+							/*if((it->ts < oldest_used && it->ts != currentClockCycle && it->used) || (victim->used == false && it->used == true))
 							{
 								oldest_used = it->ts;
 								victim = it;
 								found_used = true;
+								}*/
+						}
+						
+						if(DEBUG_COMBO_TAG)
+						{
+							debug_tag_buffer << "selected victim tag with set index " << (*victim).set_index << "\n";
+						}
+
+						// store the victim
+						if(victim_tag_list.size() > VICTIM_LIST_LENGTH)
+						{
+							victim_tag_list.pop_front();
+						}
+						victim_tag_list.push_back(EvictedTagEntry((*victim).set_index, currentClockCycle));
+						
+						
+						// now replace the victim with the new stuff
+						(*victim).set_index = tags[tags_index];
+						(*victim).valid = true;
+						(*victim).used = false;
+						(*victim).prefetched = prefetched;
+						(*victim).ts = currentClockCycle;
+						if(tags[tags_index] == demand_set)
+						{
+							(*victim).demand = true;
+						}
+						else
+						{
+							(*victim).demand = false;
+						}
+						
+					}
+					if(tagReplacement == tag_lru)
+					{
+						bool search_init = true;
+						uint64_t oldest_ts = 0;		
+						// search the tag buffer for the oldest 
+						// no need to write back though, they are just tags
+						for(std::list<tag_line>::iterator it = tag_buffer[tag_buffer_set].begin(); it != tag_buffer[tag_buffer_set].end(); it++)
+						{
+							//first is the key which is the tag address
+							//second is the actual tag line structure with the time stamp
+							// we do less than here cause older time stamps will be smaller
+							// also make sure that we didn't just add this thing in
+							if(search_init)
+							{
+								search_init = false; 
+								oldest_ts = it->ts;
+								victim = it;
+							}
+							else if(it->ts < oldest_ts && it->ts != currentClockCycle)
+							{
+								oldest_ts = it->ts;
+								victim = it;						       
 							}
 						}
 						
@@ -375,85 +474,74 @@ namespace HybridSim {
 						// search the tag buffer for the most recently used thing to evict
 						// no need to write back though, they are just tags
 						bool search_init = true;
+						bool found_used = false;
 						uint64_t newest_ts = 0;	
 						for(std::list<tag_line>::iterator it = tag_buffer[tag_buffer_set].begin(); it != tag_buffer[tag_buffer_set].end(); it++)
 						{
-							//first is the key which is the tag address
-							//second is the actual tag line structure with the time stamp
-							// we do less than here cause older time stamps will be smaller
-							if((it->ts > newest_ts && it->ts != currentClockCycle && it->used == true) || search_init)
+							// this is the opposite of LRU
+							// basically we're looking for the youngest thing to evict instead of the oldest
+							// with a preference for used things to be evicted first
+							if(search_init)
 							{
 								search_init = false; 
 								newest_ts = it->ts;
 								victim = it;
-							}
-						}
-						
-						if(search_init == false)
-						{
-							// store the victim
-							if(victim_tag_list.size() > VICTIM_LIST_LENGTH)
-							{
-								victim_tag_list.pop_front();
-							}
-							victim_tag_list.push_back(EvictedTagEntry((*victim).set_index, currentClockCycle));
-
-							// now replace the victim with the new stuff
-							(*victim).set_index = tags[tags_index];
-							(*victim).valid = true;
-							(*victim).used = false;
-							(*victim).prefetched = prefetched;
-							(*victim).ts = currentClockCycle;
-							if(tags[tags_index] == demand_set)
-							{
-								(*victim).demand = true;
+								if(it->used == true)
+									found_used = true;
 							}
 							else
 							{
-								(*victim).demand = false;
+								if(found_used == false)
+								{
+									if(it->used == true)
+									{
+										newest_ts = it->ts;
+										found_used = true;
+										victim = it;
+									}
+									else if(it->ts > newest_ts && it->ts != currentClockCycle)
+									{
+										newest_ts = it->ts;
+										victim = it;
+									}
+								}
+								else if(it->used == true)								     
+								{
+									if(it->ts > newest_ts && it->ts != currentClockCycle)
+									{
+										newest_ts = it->ts;
+										victim = it;				
+									}
+								}
+						       
 							}
 						}
-						// if nothing has been used, just pop from a random location
+						if(DEBUG_COMBO_TAG)
+						{
+							debug_tag_buffer << "selected victim tag with set index " << (*victim).set_index << "\n";
+						}
+
+						// store the victim
+						if(victim_tag_list.size() > VICTIM_LIST_LENGTH)
+						{
+							victim_tag_list.pop_front();
+						}
+						victim_tag_list.push_back(EvictedTagEntry((*victim).set_index, currentClockCycle));
+						
+						
+						// now replace the victim with the new stuff
+						(*victim).set_index = tags[tags_index];
+						(*victim).valid = true;
+						(*victim).used = false;
+						(*victim).prefetched = prefetched;
+						(*victim).ts = currentClockCycle;
+						if(tags[tags_index] == demand_set)
+						{
+							(*victim).demand = true;
+						}
 						else
 						{
-
-							if(tag_buffer[tag_buffer_set].size() > 1)
-							{
-								// making use of a lot of standard library algorithms here to avoid random selection bias
-								std::uniform_int_distribution<uint64_t> set_list_dist(0, tag_buffer[tag_buffer_set].size()-1);
-								std::default_random_engine rand_gen;
-							
-								// might have to do this multiple times to fine a line that is not one that we just replaced
-								bool done = false;
-								while(!done)
-								{
-									advance(victim, set_list_dist(rand_gen));
-									if((*victim).ts != currentClockCycle)
-										done = true;
-								}
-							}
-
-							// store the victim
-							if(victim_tag_list.size() > VICTIM_LIST_LENGTH)
-							{
-								victim_tag_list.pop_front();
-							}
-							victim_tag_list.push_back(EvictedTagEntry((*victim).set_index, currentClockCycle));
-							
-							// now replace the victim with the new stuff
-							(*victim).set_index = tags[tags_index];
-							(*victim).valid = true;
-							(*victim).used = false;
-							(*victim).prefetched = prefetched;
-							(*victim).ts = currentClockCycle;
-							if(tags[tags_index] == demand_set)
-							{
-								(*victim).demand = true;
-							}
-							else
-							{
-								(*victim).demand = false;
-							}
+							(*victim).demand = false;
 						}
 					}
 					// default random replacement
@@ -582,7 +670,6 @@ namespace HybridSim {
 		}
 		
 		//cout << "\nlooking for tag " << set_index << "\n";
-
 		if(DEBUG_COMBO_TAG)
 		{
 			debug_tag_buffer << "looking for tag with set index " << set_index << "\n";
@@ -603,7 +690,26 @@ namespace HybridSim {
 			}
 			last_set_accessed = set_index;
 		}
-			
+
+		/*if(ENABLE_TAG_BUFFER_USAGE_LOG)
+		{
+			// see if this set has been accessed before	    		    
+			if(last_access.find(set_index) != last_access.end())
+			{
+				uint64_t reuse_distance = currentClockCycle - last_access[set_index];
+				 // Update the reuse distance histogram.
+				uint64_t bin = (reuse_distance / 200) * 20;
+				if (reuse_distance >= 200)
+					bin = 200;
+				uint64_t bin_cnt = reuse_histogram[bin];
+				reuse_histogram[bin] = bin_cnt + 1;
+				reuse_average += reuse_distance;
+			}
+			last_access[set_index] = currentClockCycle;
+			num_sets_accessed++;
+			}*/
+		
+		uint64_t return_value = 0;
 		// search the buffer for this set's tags
 		for(std::list<tag_line>::iterator it = tag_buffer[tag_buffer_set].begin(); it != tag_buffer[tag_buffer_set].end(); it++)
 		{
@@ -620,16 +726,46 @@ namespace HybridSim {
 					sets_hit[tag_buffer_set] = sets_hit[tag_buffer_set] + 1;
 				}
 
+				if(ENABLE_TAG_BUFFER_USAGE_LOG)
+				{				
+					num_tags_used++;
+				}
+
 				// TODO: Not sure if this is going to work, need to check it
 				(*it).used = true;
 				// update the timestamp (not sure if this is the right way to go about this)
 				(*it).ts = currentClockCycle;
 				if((*it).prefetched == true)
-					return 3;
+					return_value = 3;
 				else if((*it).demand == true)
-					return 1;
+					return_value = 1;
 				else
-					return 2;
+					return_value = 2;
+			}
+		}
+		// search the buffer for the adjacent sets tags
+		if(tagReplacement == tag_nnn)
+		{
+			for(uint64_t set_index_var = set_index+1; set_index_var < set_index+9; set_index_var++)
+			{
+				uint64_t tag_buffer_set2;
+				if(ENABLE_SET_CHANNEL_INTERLEAVE)
+				{
+					tag_buffer_set2 = ((set_index_var) / NUM_CHANNELS) % NUM_TAG_SETS;
+				}
+				else
+			        {
+					tag_buffer_set2 = (set_index_var) % NUM_TAG_SETS;
+				}
+
+				for(std::list<tag_line>::iterator it = tag_buffer[tag_buffer_set2].begin(); it != tag_buffer[tag_buffer_set2].end(); it++)
+			        {
+					if((*it).set_index == (set_index_var))
+				        {	
+						// update the timestamp (not sure if this is the right way to go about this)
+						(*it).ts = currentClockCycle;
+					}
+				}
 			}
 		}
 		if(DEBUG_COMBO_TAG)
@@ -650,11 +786,17 @@ namespace HybridSim {
 				}
 			}
 		}
-		return 0;
+		return return_value;
 	}
 	
 	void TagBuffer::printBufferUsage()
 	{
+		debug_tag_buffer << "\n\n********************************************\n";
+		debug_tag_buffer << ">>>>>>> Tags Buffered and Use Rate <<<<<<<<\n";
+		debug_tag_buffer << "Tags buffered: " << num_tags_buffered << "\n";
+		debug_tag_buffer << "Tags used: " << num_tags_used << "\n";
+		debug_tag_buffer << "Tags used rate: " << ((float)num_tags_used / num_tags_buffered) << "\n";
+
 		debug_tag_buffer << "********************************************\n";
 		debug_tag_buffer << ">>>>>>> Final Tag Set Usage Counts <<<<<<<<\n";
 		for(uint64_t j = 0; j < NUM_TAG_SETS; j++)
@@ -684,6 +826,16 @@ namespace HybridSim {
 		{
 			debug_tag_buffer << victim_bin << " : " << victim_tag_histogram[victim_bin] << "\n";
 		}
+
+		/*debug_tag_buffer << "\n\n********************************************\n";
+		debug_tag_buffer << ">>>>>>> Set Reuse Histogram <<<<<<<<\n";
+		for (uint64_t bin = 0; bin <= 200; bin += 20)
+		{
+			debug_tag_buffer << bin << ": " << reuse_histogram[bin] << "\n";
+		}
+
+		debug_tag_buffer << "Set Reuse Average: " << (float)(reuse_average / num_sets_accessed) << "\n";*/
+
 		debug_tag_buffer.flush();
 		debug_tag_buffer.close();
 	}
