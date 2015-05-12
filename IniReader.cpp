@@ -283,6 +283,14 @@ string NVDIMM_SAVE_FILE = "none";
 				{
 					tagReplacement = tag_lrnu;
 				}
+				else if(value.compare("UF_LRA") == 0)
+				{
+					tagReplacement = tag_uflra;
+				}
+				else if(value.compare("NNN") == 0)
+				{
+					tagReplacement = tag_nnn;
+				}
 				else
 				{
 					tagReplacement = tag_lru;

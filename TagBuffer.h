@@ -98,7 +98,15 @@ namespace HybridSim
 		// trying to capture the distribution of access distances	
 		ofstream record_strides;
 		uint64_t last_set_accessed;
-		vector<uint64_t> access_stride_histogram;	
+		vector<uint64_t> access_stride_histogram;
+		// trying to capture set reuse
+		//unordered_map<uint64_t, uint64_t> last_access;
+		//unordered_map<uint64_t, uint64_t> reuse_histogram; // reuse distance
+		//uint64_t reuse_average;	
+		//uint64_t num_sets_accessed;
+
+		uint64_t num_tags_buffered;
+		uint64_t num_tags_used;
 	};
 }
 
