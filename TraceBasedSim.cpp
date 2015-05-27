@@ -43,7 +43,7 @@ uint64_t pending = 0;
 uint64_t throttle_count = 0;
 uint64_t throttle_cycles = 0;
 uint64_t final_cycles = 0;
-uint64_t speedup_factor = 0;
+float speedup_factor = 0;
 
 // The maximum transaction count for this simuation
 uint64_t START_TRANS = 0;

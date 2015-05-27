@@ -12,6 +12,7 @@ results/
 *.pyc
 *~
 out
+err
 nohup.out
 tmp
 \.#*

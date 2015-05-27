@@ -100,7 +100,6 @@ const uint64_t HALFGB = 536870912; // 1024^3 / 2
 const uint64_t THREEPOINTFIVEGB = 3758096384; // 1024^3 * 3.5
 const uint64_t FOURGB = 4294967296; // 1024^3 * 4
 
-
 // SINGLE_WORD only sends one transaction to the memories per page instead of PAGE_SIZE/BURST_SIZE
 // This is an old feature that may not work.
 #define SINGLE_WORD 0
@@ -179,6 +178,8 @@ extern uint64_t ENABLE_SET_ACCESSES_LOG;
 extern uint64_t ENABLE_PAGES_USED_LOG;
 extern uint64_t ENABLE_CONTENTION_LOG;
 extern uint64_t ENABLE_MISSED_PAGE_LOG;
+extern uint64_t ENABLE_STRIDE_LOG;
+extern uint64_t ENABLE_TAG_BUFFER_USAGE_LOG;
 extern uint64_t EPOCH_LENGTH;
 extern uint64_t HISTOGRAM_BIN;
 extern uint64_t HISTOGRAM_MAX;
@@ -215,6 +216,7 @@ extern uint64_t NUM_TAG_WAYS;
 extern uint64_t NUM_TAG_SETS;
 extern uint64_t SETS_PER_LINE;
 extern uint64_t SETS_PER_TAG_GROUP;
+extern uint64_t ENABLE_TAG_BUFFER;
 extern uint64_t ENABLE_SET_CHANNEL_INTERLEAVE;
 extern uint64_t ENABLE_TAG_PREFETCH;
 extern uint64_t TAG_PREFETCH_WINDOW;
@@ -238,6 +240,8 @@ extern uint64_t COL_PER_ROW;
 #define COMBO_CACHE_PAGES (CACHE_PAGES - ((NUM_ROWS) * (TAG_OFFSET + WASTE_OFFSET)))
 #define ACTUAL_CACHE_PAGES (assocVersion == combo_tag ? COMBO_CACHE_PAGES : CACHE_PAGES)
 
+#define VICTIM_LIST_LENGTH 64
+
 enum TagReplacement
 {
 	tag_lru,
@@ -246,6 +250,7 @@ enum TagReplacement
 	tag_random,
 	tag_mru,
 	tag_lrnu,
+	tag_uflra,
 	tag_nnn
 };
 extern string TAG_REPLACEMENT;
@@ -337,6 +342,7 @@ class tag_line
 	bool valid;
 	bool used; // this used for NRU replacement
 	bool prefetched; // tracks whether this tag was part of an explicitly prefetched tag trans
+	bool demand; // this tracks whether this tag was the one we wanted
 	uint64_t ts;
 
  	tag_line() : set_index(0), valid(false), used(false), prefetched(false), ts(0) {}

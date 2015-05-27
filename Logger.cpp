@@ -61,6 +61,8 @@ namespace HybridSim
 
 		num_tag_accesses = 0;
 		num_tag_hits = 0;
+		num_tag_demand_hits = 0;
+		num_tag_free_hits = 0;
 		num_tag_prefetches = 0;
 		num_tag_prefetch_hits = 0;
 
@@ -501,6 +503,22 @@ namespace HybridSim
 		cur_num_tag_hits += 1;
 	}
 
+	void Logger::tag_buffer_demand_hit()
+	{
+		tag_buffer_hit();
+
+		num_tag_demand_hits += 1;
+		cur_num_tag_demand_hits += 1;
+	}
+
+	void Logger::tag_buffer_free_hit()
+	{
+		tag_buffer_hit();
+
+		num_tag_free_hits += 1;
+		cur_num_tag_free_hits += 1;
+	}
+
 	void Logger::tag_buffer_prefetch()
 	{
 		num_tag_prefetches += 1;
@@ -724,6 +742,10 @@ namespace HybridSim
 				savefile << "tag accesses: " << cur_num_tag_accesses << "\n";
 				savefile << "tag hits: " << cur_num_tag_hits << "\n";
 				savefile << "tag hit rate: " << this->divide(cur_num_tag_hits, cur_num_tag_accesses) << "\n";
+				savefile << "tag demand hits: " << cur_num_tag_demand_hits << "\n";
+				savefile << "tag demand hit rate: " << this->divide(cur_num_tag_demand_hits, cur_num_tag_accesses) << "\n";
+				savefile << "tag free hits: " << cur_num_tag_free_hits << "\n";
+				savefile << "tag free hit rate: " << this->divide(cur_num_tag_free_hits, cur_num_tag_accesses) << "\n";
 				savefile << "tag prefetches: " << cur_num_tag_prefetches << "\n";
 				savefile << "tag prefetch hits: " << cur_num_tag_prefetch_hits << "\n";
 				savefile << "tag prefetch hit rate: " << this->divide(cur_num_tag_prefetch_hits, cur_num_tag_prefetches) << "\n";
@@ -832,6 +854,8 @@ namespace HybridSim
 
 		cur_num_tag_accesses = 0;
 		cur_num_tag_hits = 0;
+		cur_num_tag_demand_hits = 0;
+		cur_num_tag_free_hits = 0;
 		cur_num_tag_prefetches = 0;
 		cur_num_tag_prefetch_hits = 0;
 
@@ -884,9 +908,13 @@ namespace HybridSim
 			savefile << "tag accesses: " << num_tag_accesses << "\n";
 			savefile << "tag hits: " << num_tag_hits << "\n";
 			savefile << "tag hit rate: " << this->divide(num_tag_hits, num_tag_accesses) << "\n";
+			savefile << "tag demand hits: " << num_tag_demand_hits << "\n";
+			savefile << "tag demand hit rate: " << this->divide(num_tag_demand_hits, num_tag_accesses) << "\n";
+			savefile << "tag free hits: " << num_tag_free_hits << "\n";
+			savefile << "tag free hit rate: " << this->divide(num_tag_free_hits, num_tag_accesses) << "\n";
 			savefile << "tag prefetches: " << num_tag_prefetches << "\n";
 			savefile << "tag prefetch hits: " << num_tag_prefetch_hits << "\n";
-			savefile << "tag hit rate: " << this->divide(num_tag_prefetch_hits, num_tag_prefetches) << "\n";
+			savefile << "tag prefetch hit rate: " << this->divide(num_tag_prefetch_hits, num_tag_prefetches) << "\n";
 		}
 		savefile << "average latency: " << this->latency_cycles(sum_latency, num_accesses) << " cycles";
 		savefile << " (" << this->latency_us(sum_latency, num_accesses) << " us)\n";

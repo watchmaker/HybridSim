@@ -45,6 +45,8 @@ uint64_t ENABLE_SET_ACCESSES_LOG = 0;
 uint64_t ENABLE_PAGES_USED_LOG = 0;
 uint64_t ENABLE_CONTENTION_LOG = 0;
 uint64_t ENABLE_MISSED_PAGE_LOG = 0;
+uint64_t ENABLE_STRIDE_LOG = 0;
+uint64_t ENABLE_TAG_BUFFER_USAGE_LOG = 0;
 uint64_t EPOCH_LENGTH = 200000;
 uint64_t HISTOGRAM_BIN = 100;
 uint64_t HISTOGRAM_MAX = 20000;
@@ -75,6 +77,7 @@ uint64_t NUM_TAG_WAYS;
 uint64_t NUM_TAG_SETS;
 uint64_t SETS_PER_LINE;
 uint64_t SETS_PER_TAG_GROUP;
+uint64_t ENABLE_TAG_BUFFER;
 uint64_t ENABLE_SET_CHANNEL_INTERLEAVE;
 uint64_t ENABLE_TAG_PREFETCH;
 uint64_t TAG_PREFETCH_WINDOW;
@@ -177,6 +180,10 @@ string NVDIMM_SAVE_FILE = "none";
 				convert_uint64_t(ENABLE_CONTENTION_LOG, value, key);
 			else if (key.compare("ENABLE_MISSED_PAGE_LOG") == 0)
 				convert_uint64_t(ENABLE_MISSED_PAGE_LOG, value, key);
+			else if (key.compare("ENABLE_STRIDE_LOG") == 0)
+				convert_uint64_t(ENABLE_STRIDE_LOG, value, key);
+			else if (key.compare("ENABLE_TAG_BUFFER_USAGE_LOG") == 0)
+				convert_uint64_t(ENABLE_TAG_BUFFER_USAGE_LOG, value, key);
 			else if (key.compare("EPOCH_LENGTH") == 0)
 				convert_uint64_t(EPOCH_LENGTH, value, key);
 			else if (key.compare("HISTOGRAM_BIN") == 0)
@@ -240,6 +247,8 @@ string NVDIMM_SAVE_FILE = "none";
 				convert_uint64_t(SETS_PER_LINE, value, key);
 			else if (key.compare("SETS_PER_TAG_GROUP") == 0)
 				convert_uint64_t(SETS_PER_TAG_GROUP, value, key);
+			else if (key.compare("ENABLE_TAG_BUFFER") == 0)
+				convert_uint64_t(ENABLE_TAG_BUFFER, value, key);
 			else if (key.compare("ENABLE_SET_CHANNEL_INTERLEAVE") == 0)
 				convert_uint64_t(ENABLE_SET_CHANNEL_INTERLEAVE, value, key);
 			else if (key.compare("ENABLE_TAG_PREFETCH") == 0)
@@ -273,6 +282,10 @@ string NVDIMM_SAVE_FILE = "none";
 				else if(value.compare("LRNU") == 0)
 				{
 					tagReplacement = tag_lrnu;
+				}
+				else if(value.compare("UF_LRA") == 0)
+				{
+					tagReplacement = tag_uflra;
 				}
 				else if(value.compare("NNN") == 0)
 				{

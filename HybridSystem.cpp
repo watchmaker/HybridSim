@@ -61,6 +61,19 @@ namespace HybridSim {
 		inipathPrefix.append("/");
 
 		iniReader.read(hybridsim_ini);
+
+		if (ini == "")
+		{
+			nvdimm_cache_ini = "";
+			char *base_path = getenv("HYBRIDSIM_BASE");
+			if (base_path != NULL)
+			{
+				nvdimm_cache_ini.append(base_path);
+				nvdimm_cache_ini.append("/");
+			}
+			nvdimm_cache_ini.append("../HybridSim/ini/nvdimm_cache.ini");
+		}
+
 		iniReader.read_nv_ini(nvdimm_cache_ini);
 		
 		if (ENABLE_LOGGER)
@@ -73,7 +86,6 @@ namespace HybridSim {
 		cerr << "Creating Cache using NVDIMM with " << nvdimm_cache_ini << "\n";
 		llcache = NVDSim::getNVDIMMInstance(1,nvdimm_cache_ini,"ini/def_system.ini",inipathPrefix,"");
 	
-
 		cerr << "Creating Backing Store using NVDIMM with " << nvdimm_back_ini << "\n";
 		back = NVDSim::getNVDIMMInstance(2,nvdimm_back_ini,"ini/def_system.ini",inipathPrefix,"");
 		cerr << "Done with creating memories" << endl;
@@ -92,9 +104,13 @@ namespace HybridSim {
 		back->RegisterCallbacks(nv_back_read_cb, nv_back_crit_cb, nv_back_write_cb, NULL);
 
 		decoder = AddressDecode();
-		if(DEBUG_COMBO_TAG || DEBUG_TAG_BUFFER)
+		if(DEBUG_COMBO_TAG || DEBUG_TAG_BUFFER || ENABLE_TAG_BUFFER_USAGE_LOG)
 		{
 			tbuff.initializeSetTracking();
+		}
+		if(ENABLE_STRIDE_LOG)
+		{
+			tbuff.initializeStrideTracking();
 		}
 
 		// Need to check the queue when we start.
@@ -113,6 +129,12 @@ namespace HybridSim {
 		restoreCacheTable();
 
 		cout << "cache pages are " << ACTUAL_CACHE_PAGES << "\n";
+		if(ENABLE_TAG_BUFFER == 0 && ENABLE_TAG_PREFETCH == 1)
+		{
+			cout << "WARNING PREFETCHING TAGS BUT NO BUFFER TO STORE THEM \n";
+			cout << ">>> Turning off Prefetching";
+			ENABLE_TAG_PREFETCH = 0;
+		}
 
 		// Load prefetch data.
 		if (ENABLE_PERFECT_PREFETCHING)
@@ -294,9 +316,9 @@ namespace HybridSim {
 		// Used to see if any work is done on this cycle.
 		bool sent_transaction = false;
 
-
+		//cout << "trans queue now has size " << trans_queue.size() << "\n";
 		list<Transaction>::iterator it = trans_queue.begin();
-		while((it != trans_queue.end()) && (pending_pages.size() < NUM_SETS) && (check_queue) && (delay_counter == 0))
+		while((it != trans_queue.end()) && (pending_pages.size() < NUM_SETS) && (check_queue) && (delay_counter == 0) && (!active_transaction_flag))
 		{
 			// Compute the page address.
 			uint64_t back_addr = ALIGN((*it).address);
@@ -342,6 +364,14 @@ namespace HybridSim {
 			}
 		}
 
+		// If there is nothing to do, wait until a new transaction arrives or a pending set is released.
+		// Only set check_queue to false if the delay counter is 0. Otherwise, a transaction that arrives
+		// while delay_counter is running might get missed and stuck in the queue.
+		if ((sent_transaction == false) && (delay_counter == 0))
+		{
+			this->check_queue = false;
+		}
+
 		// See if there are any transactions ready to be processed.
 		// moved this to right after the active transaction is set because there were situations
 		// where we could have the pending state change between setting up a transaction and when it was
@@ -350,14 +380,6 @@ namespace HybridSim {
 		{
 				ProcessTransaction(active_transaction);
 				active_transaction_flag = false;
-		}
-
-		// If there is nothing to do, wait until a new transaction arrives or a pending set is released.
-		// Only set check_queue to false if the delay counter is 0. Otherwise, a transaction that arrives
-		// while delay_counter is running might get missed and stuck in the queue.
-		if ((sent_transaction == false) && (delay_counter == 0))
-		{
-			this->check_queue = false;
 		}
 
 
@@ -493,6 +515,7 @@ namespace HybridSim {
 
 		trans_queue.push_back(trans);
 		trans_queue_size++;
+	
 
 		if ((trans.transactionType == PREFETCH) || (trans.transactionType == FLUSH))
 		{
@@ -1000,16 +1023,19 @@ namespace HybridSim {
 
 			// first see if we alrady have the tags for this set
 			uint64_t had_tags = tbuff.haveTags(set_index);
-			if(had_tags != 0)
+			if(had_tags != 0 && ENABLE_TAG_BUFFER == 1)
 			{
 				// if we do have the tags then there's no need to issue a tag lookup to the cache
 				// so we just go directly to the check tags phase
 				if(ENABLE_LOGGER)
 				{
-					if(had_tags == 2)
+					if(had_tags == 3)
 						log.tag_buffer_prefetch_hit();
+					else if(had_tags == 2)
+						log.tag_buffer_free_hit();
 					else
-						log.tag_buffer_hit();
+						log.tag_buffer_demand_hit();
+						
 				}
 				//last minute change, always prefetch
 				HitCheck(trans, true);
@@ -1118,7 +1144,7 @@ namespace HybridSim {
 			cerr << "set index mod was " << set_index_mod << "\n";
 			cerr << "set index position was " << set_index_pos << "\n";
 			cerr << "set index align was " << set_index_align << "\n";
-		}
+		}		
 
 		// allow for variable length prefetches
 		uint64_t index_max = 0;
@@ -1136,8 +1162,6 @@ namespace HybridSim {
 
 		uint64_t curr_set_addr = (address_stuff.channel + (address_stuff.rank * (NUM_CHANNELS)) + (address_stuff.bank * (NUM_CHANNELS * RANKS_PER_CHANNEL)) + (address_stuff.row * (NUM_CHANNELS * RANKS_PER_CHANNEL * BANKS_PER_RANK)) + (set_index_pos * NUM_ROWS)) * PAGE_SIZE;
 		decoder.getDecode(curr_set_addr);
-
-		
 
 		// only prefetch going forward
 		// set_index_pos should be tags that we already have
@@ -1665,7 +1689,7 @@ namespace HybridSim {
 					{
 						tags[i] = set_index_start+(i*NUM_CHANNELS);
 					}
-					tbuff.addTags(tags, false);					
+					tbuff.addTags(tags, false, set_index);					
 				}
 				else
 				{
@@ -1675,7 +1699,7 @@ namespace HybridSim {
 					{
 						tags[i] = set_index_start+(i*NUM_CHANNELS);
 					}
-					tbuff.addTags(tags, false);						
+					tbuff.addTags(tags, false, set_index);						
 				}
 			}
 			else
@@ -1690,7 +1714,7 @@ namespace HybridSim {
 					{
 						tags[i] = set_index_start+i;
 					}
-					tbuff.addTags(tags, false);					
+					tbuff.addTags(tags, false, set_index);					
 				}
 				else
 				{
@@ -1700,7 +1724,7 @@ namespace HybridSim {
 					{
 						tags[i] = set_index_start+i;
 					}
-					tbuff.addTags(tags, false);						
+					tbuff.addTags(tags, false, set_index);						
 				}
 			}
 			
@@ -1725,7 +1749,7 @@ namespace HybridSim {
 					{
 						tags[i] = set_index_start+(i*NUM_CHANNELS);
 					}
-					tbuff.addTags(tags, true);					
+					tbuff.addTags(tags, true, set_index);					
 				}
 				else
 				{
@@ -1735,7 +1759,7 @@ namespace HybridSim {
 					{
 						tags[i] = set_index_start+(i*NUM_CHANNELS);
 					}
-					tbuff.addTags(tags, true);						
+					tbuff.addTags(tags, true, set_index);						
 				}
 			}
 			else
@@ -1750,7 +1774,7 @@ namespace HybridSim {
 					{
 						tags[i] = set_index_start+i;
 					}
-					tbuff.addTags(tags, true);					
+					tbuff.addTags(tags, true, set_index);					
 				}
 				else
 				{
@@ -1760,7 +1784,7 @@ namespace HybridSim {
 					{
 						tags[i] = set_index_start+i;
 					}
-					tbuff.addTags(tags, true);						
+					tbuff.addTags(tags, true, set_index);						
 				}
 			}
 
@@ -1851,7 +1875,12 @@ namespace HybridSim {
 		// This is done immediately rather than waiting for callback.
 		// Only do this if it hasn't been sent already by the critical cache line first callback.
 		if (!p.callback_sent)
+		{
 			WriteDoneCallback(systemID, p.orig_addr, currentClockCycle);
+			if (DEBUG_CACHE)
+				cerr << currentClockCycle << ": " << "CACHE_WRITE callback for (" << p.back_addr << ", " << p.cache_addr << ")\n";
+		}
+		        
 
 		// Erase the page from the pending set.
 		// Note: the if statement is needed to ensure that the VictimRead operation (if it was invoked as part of a cache miss)
@@ -1875,7 +1904,7 @@ namespace HybridSim {
 
 		uint64_t set_index = SET_INDEX(cache_addr);
 		uint64_t back_address = BACK_ADDRESS(cur_line.tag, set_index);
-		contention_unlock(back_address, back_address, "FLUSH", false, 0, true, cache_addr);
+		contention_unlock(back_address, back_address, "FLUSH", false, 0, true, cache_addr);	
 	}
 
         uint64_t HybridSystem::VictimSelect(uint64_t set_index, uint64_t addr, uint64_t cur_address, cache_line cur_line, list<uint64_t> set_address_list)
@@ -2594,12 +2623,18 @@ namespace HybridSim {
 		
 			// Tell NVDIMM to print logs now
 			llcache->saveStats();
+
 			// Both of them
 			back->saveStats();
 
-			if(DEBUG_TAG_BUFFER)
+			if(DEBUG_COMBO_TAG || ENABLE_TAG_BUFFER_USAGE_LOG)
 			{
 				tbuff.printBufferUsage();
+			}
+
+			if(ENABLE_STRIDE_LOG)
+			{
+				tbuff.printStrides();
 			}
 		}
 	}
@@ -2817,6 +2852,10 @@ namespace HybridSim {
 			// Restart queue checking.
 			this->check_queue = true;
 			pending_count -= 1;
+		}
+		else
+		{
+			cout << "something bad happened with the contention unlock \n";
 		}
 	}
 
