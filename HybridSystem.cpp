@@ -1936,7 +1936,7 @@ namespace HybridSim {
 		
 			inFile.close();
 
-			flash->loadNVState(NVDIMM_RESTORE_FILE);
+			//flash->loadNVState(NVDIMM_RESTORE_FILE);
 		}
 	}
 
