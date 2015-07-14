@@ -193,6 +193,8 @@ namespace HybridSim {
 		unused_prefetch_victims = 0;
 		prefetch_hit_nops = 0;
 
+		prefetch_window = SEQUENTIAL_PREFETCHING_WINDOW;
+
 		unique_one_misses = 0;
 		unique_stream_buffers = 0;
 		stream_buffer_hits = 0;
@@ -692,7 +694,11 @@ namespace HybridSim {
 
 			assert(trans.transactionType != SYNC);
 
-			if ((SEQUENTIAL_PREFETCHING_WINDOW > 0) && (trans.transactionType != PREFETCH))
+			// ==================================================================================
+			// Prefetches are issued here
+			// ==================================================================================
+
+			if ((SEQUENTIAL_PREFETCHING_WINDOW > 0 || ENABLE_VARIABLE_WINDOW) && (trans.transactionType != PREFETCH))
 			{
 				issue_sequential_prefetches(addr);
 			}
@@ -701,6 +707,8 @@ namespace HybridSim {
 			{
 				stream_buffer_miss_handler(PAGE_ADDRESS(addr));
 			}
+
+			// ==================================================================================
 
 			// Select a victim offset within the set
 			// PaulMod: Added victim select function
@@ -2138,20 +2146,57 @@ namespace HybridSim {
 	// PREFETCHING FUNCTIONS
 	void HybridSystem::issue_sequential_prefetches(uint64_t page_addr)
 	{
-		// Count down from the top address. This must be done because addPrefetch puts transactions at the front
-		// of the queue and we want page_addr+PAGE_SIZE to be the first prefetch issued.
-		for (int i=SEQUENTIAL_PREFETCHING_WINDOW; i > 0; i--)
+		// if we're doing variable prefetching windows then we need to undate the window size and then issue
+		// the prefetches
+		if(ENABLE_VARIABLE_WINDOW)
 		{
-			// Compute the next prefetch address.
-			uint64_t prefetch_address = page_addr + (i * PAGE_SIZE);
+			// update the window size based off of the used prefetches
+			double used_prefetches = 1 - (total_prefetches / unused_prefetches);
+			// these limits will almost certainly need to be adjusted
+			if(used_prefetches > 0.75)
+			{
+				prefetch_window += PREFETCH_UP_STEP_SIZE;
+			}
+			else if(used_prefetches < 0.25) 
+			{
+				prefetch_window -= PREFETCH_DOWN_STEP_SIZE;
+			}
+			// otherwise the prefetch window just stays the same size
 
-			// If address is above the legal address space for the main memory, then do not issue this prefetch.
-			if (prefetch_address >= (TOTAL_PAGES * PAGE_SIZE))
-				continue;
-
-			// Add the prefetch.
-			addPrefetch(prefetch_address);
-			//cerr << currentClockCycle << ": Prefetcher adding " << prefetch_address << " to transaction queue.\n";
+			// now issue the prefetches
+			for (int i=prefetch_window; i > 0; i--)
+			{
+				// Compute the next prefetch address.
+				uint64_t prefetch_address = page_addr + (i * PAGE_SIZE);
+				
+				// If address is above the legal address space for the main memory, then do not issue this prefetch.
+				if (prefetch_address >= (TOTAL_PAGES * PAGE_SIZE))
+					continue;
+				
+				// Add the prefetch.
+				addPrefetch(prefetch_address);
+				//cerr << currentClockCycle << ": Prefetcher adding " << prefetch_address << " to transaction queue.\n";
+			}
+		}
+		// otherwise we're just doing the normal basic sequential prefetching
+		// so just issue some fixed number of prefetches
+		else
+		{
+			// Count down from the top address. This must be done because addPrefetch puts transactions at the front
+			// of the queue and we want page_addr+PAGE_SIZE to be the first prefetch issued.
+			for (int i=SEQUENTIAL_PREFETCHING_WINDOW; i > 0; i--)
+			{
+				// Compute the next prefetch address.
+				uint64_t prefetch_address = page_addr + (i * PAGE_SIZE);
+				
+				// If address is above the legal address space for the main memory, then do not issue this prefetch.
+				if (prefetch_address >= (TOTAL_PAGES * PAGE_SIZE))
+					continue;
+				
+				// Add the prefetch.
+				addPrefetch(prefetch_address);
+				//cerr << currentClockCycle << ": Prefetcher adding " << prefetch_address << " to transaction queue.\n";
+			}
 		}
 	}
 

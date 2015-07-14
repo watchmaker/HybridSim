@@ -206,6 +206,11 @@ namespace HybridSim
 		unordered_map<uint64_t, list<uint64_t>> prefetch_new_addr;
 		unordered_map<uint64_t, uint64_t> prefetch_counter;
 
+		// adaptive prefetch window size
+		// the size of this changes with respect to the percentage of used prefetches
+		// we reevaluate the size of the prefetch window on each prefetch
+		uint64_t prefetch_window;
+
 		ofstream debug_victim;
 		ofstream debug_nvdimm_trace;
 		ofstream debug_full_trace;
