@@ -43,8 +43,10 @@ uint64_t pending = 0;
 uint64_t throttle_count = 0;
 uint64_t throttle_cycles = 0;
 uint64_t final_cycles = 0;
+float speedup_factor = 0;
 
 // The maximum transaction count for this simuation
+uint64_t START_TRANS = 0;
 uint64_t MAX_TRANS = 0;
 
 // The cycle counter is used to keep track of what cycle we are on.
@@ -58,7 +60,9 @@ void print_usage()
 {
 	cout << "Hybrid Trace Based Sim Usage \n\n";
 	cout << " -t --trace_file <filename>    Trace file to use \n";
+	cout << " -s --start_trans <trans number>  Transaction to start on \n";
 	cout << " -e --end_trans <trans number> Transaction to end on \n";
+	cout << " -u --speedup <speedup factor>    The amount to speedup the trace \n";
 	cout << " -h --help                     Display the usage information \n";
 }
 
@@ -75,7 +79,9 @@ int main(int argc, char *argv[])
 	// the array of options that we will use
 	const struct option long_options[] = {
 		{ "trace_file", required_argument, NULL, 't'},
+		{ "start_trans", required_argument, NULL, 's'},
 		{ "end_trans", required_argument, NULL, 'e'},
+		{ "speedup", required_argument, NULL, 'u'},
 		{ "help", no_argument, NULL, 'h' },
 		{ NULL, no_argument, NULL, 0 }		
 	};
@@ -89,9 +95,21 @@ int main(int argc, char *argv[])
 			tracefile = string(optarg);
 			cout << "Using trace file " << tracefile << "\n";
 			break;
+		case 's':
+			ss << optarg;
+			ss >> START_TRANS;
+			ss.clear(); // safety
+			break;
 		case 'e':
 			ss << optarg;
 			ss >> MAX_TRANS;
+			ss.clear(); // safety
+			break;
+		case 'u':
+			ss << optarg;
+			ss >> speedup_factor;
+			cout << "speedup factor is now " << speedup_factor << "\n";
+			ss.clear(); // safety
 			break;
 		case 'h':
 			print_usage();
@@ -172,6 +190,21 @@ int HybridSimTBS::run_trace(string tracefile)
 	bool done = false;
 	uint64_t trans_count = 0;
 
+	// if we're fast forwarding some
+	if(START_TRANS != 0)
+	{
+		while(inFile.good() && !done)
+		{
+			inFile.getline(char_line, 256);
+			trans_count++;
+			if(trans_count >= START_TRANS)
+			{
+				done = true;
+			}
+		}		
+	}
+	done = false;
+
 	while (inFile.good() && !done)
 	{
 		// Read the next line.
@@ -212,7 +245,15 @@ int HybridSimTBS::run_trace(string tracefile)
 		}
 
 		// Finish parsing.
-		uint64_t trans_cycle = line_vals[0];
+		uint64_t trans_cycle;
+		if(speedup_factor != 0)
+		{
+			trans_cycle = line_vals[0] / speedup_factor;
+		}
+		else
+		{
+			trans_cycle = line_vals[0];
+		}
 		bool write = line_vals[1] % 2;
 		uint64_t addr = line_vals[2];
 
