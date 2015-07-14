@@ -59,6 +59,10 @@ namespace HybridSim
 		num_write_misses = 0;
 		num_write_hits = 0;
 
+		num_prefetches = 0;
+		num_used_prefetches = 0;
+		prefetch_window = 0;
+
 		sum_latency = 0;
 		sum_read_latency = 0;
 		sum_write_latency = 0;
@@ -481,6 +485,24 @@ namespace HybridSim
 		cur_num_write_misses += 1;
 	}
 
+	void Logger::prefetch()
+	{
+		num_prefetches += 1;
+		cur_num_prefetches += 1;
+	}
+
+	void Logger::used_prefetch()
+	{
+		num_used_prefetches += 1;
+		cur_num_used_prefetches += 1;
+	}
+		
+	void Logger::update_prefetch_window(uint64_t size)
+	{
+		prefetch_window = size;
+		cur_prefetch_window = size;
+	}
+
 
 	double Logger::compute_running_average(double old_average, double num_values, double new_value)
 	{
@@ -684,6 +706,13 @@ namespace HybridSim
 			savefile << "misses: " << cur_num_misses << "\n";
 			savefile << "hits: " << cur_num_hits << "\n";
 			savefile << "miss rate: " << this->divide(cur_num_misses, cur_num_accesses) << "\n";
+			if(ENABLE_VARIABLE_WINDOW)
+			{
+				savefile << "total prefetches: " << cur_num_prefetches << "\n";
+				savefile << "used prefetches: " << cur_num_used_prefetches << "\n";
+				savefile << "used percentage: " << (float)cur_num_used_prefetches / (float)cur_num_prefetches << "\n";
+				savefile << "prefetch window: " << cur_prefetch_window << "\n";
+			}
 			savefile << "average latency: " << this->latency_cycles(cur_sum_latency, cur_num_accesses) << " cycles";
 			savefile << " (" << this->latency_us(cur_sum_latency, cur_num_accesses) << " us)\n";
 			savefile << "average queue latency: " << this->latency_cycles(cur_sum_queue_latency, cur_num_accesses) << " cycles";
@@ -785,6 +814,10 @@ namespace HybridSim
 		cur_num_write_misses = 0;
 		cur_num_write_hits = 0;
 
+		cur_num_prefetches = 0;
+		cur_num_used_prefetches = 0;
+		cur_prefetch_window = 0;
+		
 		cur_sum_latency = 0;
 		cur_sum_read_latency = 0;
 		cur_sum_write_latency = 0;
@@ -829,6 +862,13 @@ namespace HybridSim
 		savefile << "misses: " << num_misses << "\n";
 		savefile << "hits: " << num_hits << "\n";
 		savefile << "miss rate: " << miss_rate() << "\n";
+		if(ENABLE_VARIABLE_WINDOW)
+		{
+			savefile << "total prefetches: " << num_prefetches << "\n";
+			savefile << "used prefetches: " << num_used_prefetches << "\n";
+			savefile << "used percentage: " << (float)num_used_prefetches / (float)num_prefetches << "\n";
+			savefile << "prefetch window: " << prefetch_window << "\n";
+		}
 		savefile << "average latency: " << this->latency_cycles(sum_latency, num_accesses) << " cycles";
 		savefile << " (" << this->latency_us(sum_latency, num_accesses) << " us)\n";
 		savefile << "average queue latency: " << this->latency_cycles(sum_queue_latency, num_accesses) << " cycles";

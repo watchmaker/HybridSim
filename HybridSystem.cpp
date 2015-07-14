@@ -975,6 +975,8 @@ namespace HybridSim {
 		{
 			cur_line.prefetched = true;
 			total_prefetches++;
+			if(ENABLE_LOGGER)
+				log.prefetch();
 			unused_prefetches++;
 		}
 		else
@@ -1052,7 +1054,11 @@ namespace HybridSim {
 		cur_line.ts = currentClockCycle;
 		cur_line.access_count++;
 		if ((cur_line.prefetched) && (cur_line.used == false)) // Note: this if statement must come before cur_line.used is set to true.
+		{
 			unused_prefetches--;
+			if(ENABLE_LOGGER)
+				log.used_prefetch();
+		}
 		cur_line.used = true;
 		cache[cache_addr] = cur_line;
 
@@ -1126,7 +1132,11 @@ namespace HybridSim {
 		cur_line.dirty = true;
 		cur_line.valid = true;
 		if ((cur_line.prefetched) && (cur_line.used == false)) // Note: this if statement must come before cur_line.used is set to true.
+		{
 			unused_prefetches--;
+			if(ENABLE_LOGGER)
+				log.used_prefetch();
+		}
 		cur_line.used = true;
 		cur_line.ts = currentClockCycle;
 		cur_line.access_count++;
@@ -2153,18 +2163,25 @@ namespace HybridSim {
 			// update the window size based off of the used prefetches
 			double used_prefetches = 0.5;
 			if(unused_prefetches != 0)
-				used_prefetches = 1 - (total_prefetches / unused_prefetches);
+				used_prefetches = 1.0 - (float)(float((unused_prefetches + unused_prefetch_victims)) / float(total_prefetches));
 
 			// these limits will almost certainly need to be adjusted
 			if(used_prefetches > 0.75)
 			{
-				prefetch_window += PREFETCH_UP_STEP_SIZE;
+				if((prefetch_window+PREFETCH_UP_STEP_SIZE) <= MAX_PREFETCHING_WINDOW)
+					prefetch_window += PREFETCH_UP_STEP_SIZE;
 			}
 			else if(used_prefetches < 0.25) 
 			{
-				prefetch_window -= PREFETCH_DOWN_STEP_SIZE;
+				// don't let the prefetch window decrease below 1
+				if((prefetch_window-PREFETCH_DOWN_STEP_SIZE) >= 1 && prefetch_window != 1)
+					prefetch_window -= PREFETCH_DOWN_STEP_SIZE;
 			}
 			// otherwise the prefetch window just stays the same size
+
+			// record the size of the prefetch window
+			if(ENABLE_LOGGER)
+				log.update_prefetch_window(prefetch_window);
 
 			// now issue the prefetches
 			for (int i=prefetch_window; i > 0; i--)

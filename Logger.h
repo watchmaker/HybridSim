@@ -61,6 +61,11 @@ namespace HybridSim
 		uint64_t num_read_hits;
 		uint64_t num_write_misses;
 		uint64_t num_write_hits;
+
+		// added prefetch stat tracking
+		uint64_t num_prefetches;
+		uint64_t num_used_prefetches;
+		uint64_t prefetch_window;
 		
 		uint64_t sum_latency;
 		uint64_t sum_read_latency;
@@ -102,6 +107,10 @@ namespace HybridSim
 		uint64_t cur_num_read_hits;
 		uint64_t cur_num_write_misses;
 		uint64_t cur_num_write_hits;
+
+		uint64_t cur_num_prefetches;
+		uint64_t cur_num_used_prefetches;
+		uint64_t cur_prefetch_window;
 		
 		uint64_t cur_sum_latency;
 		uint64_t cur_sum_read_latency;
@@ -243,6 +252,10 @@ namespace HybridSim
 		void read_miss();
 		void write_hit();
 		void write_miss();
+
+		void prefetch();
+		void used_prefetch();
+		void update_prefetch_window(uint64_t size);
 
 		double compute_running_average(double old_average, double num_values, double new_value);
 		void latency(uint64_t cycles);
