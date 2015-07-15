@@ -68,6 +68,8 @@
 // Outputs the full trace of accesses received by HybridSim. Goes to full_trace.log.
 #define DEBUG_FULL_TRACE 0
 
+// Outputs the prefetching window information
+#define DEBUG_PREFETCH_WINDOW 0
 
 // Map the first CACHE_PAGES of the NVDIMM address space.
 // This is the initial state of the hybrid memory on boot.

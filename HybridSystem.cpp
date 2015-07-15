@@ -229,6 +229,16 @@ namespace HybridSim {
 				abort();
 			}
 		}
+
+		if (DEBUG_PREFETCH_WINDOW)
+		{
+			debug_prefetch_window.open("prefetch_window.log", ios_base::out | ios_base::trunc);
+			if (!debug_prefetch_window.is_open())
+			{
+				cerr << "ERROR: HybridSim debug_prefetch_window file failed to open.\n";
+				abort();
+			}
+		}
 	}
 
 	HybridSystem::~HybridSystem()
@@ -241,6 +251,9 @@ namespace HybridSim {
 
 		if (DEBUG_FULL_TRACE)
 			debug_full_trace.close();
+
+		if (DEBUG_PREFETCH_WINDOW)
+			debug_prefetch_window.close();
 	}
 
 	// static allocator for the library interface
@@ -2178,13 +2191,33 @@ namespace HybridSim {
 			if(used_prefetches > 0.75)
 			{
 				if((prefetch_window+PREFETCH_UP_STEP_SIZE) <= MAX_PREFETCHING_WINDOW)
+				{
 					prefetch_window += PREFETCH_UP_STEP_SIZE;
+					if(DEBUG_PREFETCH_WINDOW)
+					{
+						debug_prefetch_window << "cycle " << currentClockCycle << "\n";
+						debug_prefetch_window << "total_prefetches are " << total_prefetches << "\n";
+						debug_prefetch_window << "unused prefetches are " << unused_prefetches << "\n";
+						debug_prefetch_window << "used_prefetch precentage is " << used_prefetches << "\n";
+						debug_prefetch_window << "prefetch_window is " << prefetch_window << "\n";
+					}
+				}
 			}
 			else if(used_prefetches < 0.25) 
 			{
 				// don't let the prefetch window decrease below 1
 				if((prefetch_window-PREFETCH_DOWN_STEP_SIZE) >= 1 && prefetch_window != 1)
+				{
 					prefetch_window -= PREFETCH_DOWN_STEP_SIZE;
+					if(DEBUG_PREFETCH_WINDOW)
+					{
+						debug_prefetch_window << "cycle " << currentClockCycle << "\n";
+						debug_prefetch_window << "total_prefetches are " << total_prefetches << "\n";
+						debug_prefetch_window << "unused prefetches are " << unused_prefetches << "\n";
+						debug_prefetch_window << "used_prefetch precentage is " << used_prefetches << "\n";
+						debug_prefetch_window << "prefetch_window is " << prefetch_window << "\n";
+					}
+				}
 			}
 			// otherwise the prefetch window just stays the same size
 

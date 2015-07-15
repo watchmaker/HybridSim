@@ -214,6 +214,7 @@ namespace HybridSim
 		ofstream debug_victim;
 		ofstream debug_nvdimm_trace;
 		ofstream debug_full_trace;
+		ofstream debug_prefetch_window;
 
 		// TLB state
 		unordered_map<uint64_t, uint64_t> tlb_base_set; 
