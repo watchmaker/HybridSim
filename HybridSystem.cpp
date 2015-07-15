@@ -2206,7 +2206,7 @@ namespace HybridSim {
 			else if(used_prefetches < 0.25) 
 			{
 				// don't let the prefetch window decrease below 1
-				if((prefetch_window-PREFETCH_DOWN_STEP_SIZE) >= 1 && prefetch_window != 1)
+				if((prefetch_window > PREFETCH_DOWN_STEP_SIZE && prefetch_window-PREFETCH_DOWN_STEP_SIZE) >= 1 && prefetch_window != 1)
 				{
 					prefetch_window -= PREFETCH_DOWN_STEP_SIZE;
 					if(DEBUG_PREFETCH_WINDOW)
