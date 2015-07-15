@@ -2163,7 +2163,16 @@ namespace HybridSim {
 			// update the window size based off of the used prefetches
 			double used_prefetches = 0.5;
 			if(unused_prefetches != 0)
-				used_prefetches = 1.0 - (float)(float((unused_prefetches + unused_prefetch_victims)) / float(total_prefetches));
+			{
+				if(COUNT_PREFETCH_VICTIMS)
+				{
+					used_prefetches = 1.0 - (float)(float((unused_prefetches + unused_prefetch_victims)) / float(total_prefetches));
+				}
+				else
+				{
+					used_prefetches = 1.0 - (float)(float(unused_prefetches) / float(total_prefetches));
+				}
+			}
 
 			// these limits will almost certainly need to be adjusted
 			if(used_prefetches > 0.75)

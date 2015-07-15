@@ -40,6 +40,7 @@
 #define MAX_PREFETCHING_WINDOW 16 // defines that largest allowable sequential prefetch
 #define PREFETCH_UP_STEP_SIZE 2 // defines how quickly we grow the prefetching window
 #define PREFETCH_DOWN_STEP_SIZE 4 // defines how quickly we shrink the prefetching window
+#define COUNT_PREFETCH_VICTIMS 0 // determines if we count prefetch victims against the window
 
 // Stream Buffer Setup.
 #define ENABLE_STREAM_BUFFER 1
