@@ -237,8 +237,6 @@ extern uint64_t COL_PER_ROW;
 #define WASTE_OFFSET (COL_PER_ROW - ((SETS_PER_LINE / SETS_PER_TAG_GROUP) + (SETS_PER_LINE * SET_SIZE)))
 // update the cache page variable to reflect the wasted cache pages due to tag storage
 #define NUM_ROWS (NUM_CHANNELS * RANKS_PER_CHANNEL * BANKS_PER_RANK * ROWS_PER_BANK)
-#define COMBO_CACHE_PAGES (CACHE_PAGES - ((NUM_ROWS) * (TAG_OFFSET + WASTE_OFFSET)))
-#define ACTUAL_CACHE_PAGES (assocVersion == combo_tag ? COMBO_CACHE_PAGES : CACHE_PAGES)
 
 #define VICTIM_LIST_LENGTH 64
 
@@ -291,7 +289,7 @@ extern string HYBRIDSIM_SAVE_FILE;
 extern string NVDIMM_SAVE_FILE;
 
 // Macros derived from Ini settings.
-#define NUM_SETS (ACTUAL_CACHE_PAGES / SET_SIZE)
+#define NUM_SETS (CACHE_PAGES / SET_SIZE)
 #define PAGE_NUMBER(addr) (addr / PAGE_SIZE)
 #define PAGE_ADDRESS(addr) ((addr / PAGE_SIZE) * PAGE_SIZE)
 #define PAGE_OFFSET(addr) (addr % PAGE_SIZE)
