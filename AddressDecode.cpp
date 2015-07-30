@@ -95,10 +95,10 @@ AddressSet AddressDecode::getDecode(uint64_t addr)
 		decoded_addr.row = tempA ^ tempB;
 
 		tempA = physicalAddress;
-		//physicalAddress = physicalAddress >> colHighBitWidth;
-		//tempB = physicalAddress << colHighBitWidth;
-		physicalAddress = physicalAddress >> colBitWidth;
-		tempB = physicalAddress << colBitWidth;
+		physicalAddress = physicalAddress >> colHighBitWidth;
+		tempB = physicalAddress << colHighBitWidth;
+		//physicalAddress = physicalAddress >> colBitWidth;
+		//tempB = physicalAddress << colBitWidth;
 		decoded_addr.column = tempA ^ tempB;	
 	}
 	else

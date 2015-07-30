@@ -117,8 +117,78 @@ namespace HybridSim {
 					// have in place for general cache replacement
 					// TODO: move these functions and the other replacement functions to some common object
 					std::list<tag_line>::iterator victim = tag_buffer[tag_buffer_set].begin();
+					// UF_LRA Replacement (Used First - Least Recently Added)
+					// NNN Replacement (Not Nearest Neighbors) - extension on UF_LRA to protect adjacent sets from eviction as well
+					// sort've like LRU replacement 
+					if(tagReplacement == tag_uflra || tagReplacement == tag_nnn)
+					{
+						bool search_init = true;
+						bool found_used = false;
+						uint64_t oldest_ts = 0;		
+						// search the tag buffer for the oldest 
+						// no need to write back though, they are just tags
+						for(std::list<tag_line>::iterator it = tag_buffer[tag_buffer_set].begin(); it != tag_buffer[tag_buffer_set].end(); it++)
+						{
+							//first is the key which is the tag address
+							//second is the actual tag line structure with the time stamp
+							// we do less than here cause older time stamps will be smaller
+							// also make sure that we didn't just add this thing in
+							if(search_init)
+							{
+								search_init = false; 
+								oldest_ts = it->ts;
+								victim = it;
+								if(it->used == true)
+									found_used = true;
+							}
+							else
+							{
+								if(found_used == false)
+								{
+									if(it->used == true)
+									{
+										oldest_ts = it->ts;
+										found_used = true;
+										victim = it;
+									}
+									else if(it->ts < oldest_ts && it->ts != currentClockCycle)
+									{
+										oldest_ts = it->ts;
+										victim = it;
+									}
+								}
+								else if(it->used == true)								     
+								{
+									if(it->ts < oldest_ts && it->ts != currentClockCycle)
+									{
+										oldest_ts = it->ts;
+										victim = it;				
+									}
+								}
+						       
+							}
+							/*if((it->ts < oldest_used && it->ts != currentClockCycle && it->used) || (victim->used == false && it->used == true))
+							{
+								oldest_used = it->ts;
+								victim = it;
+								found_used = true;
+								}*/
+						}
+						
+						if(DEBUG_COMBO_TAG)
+						{
+							debug_tag_buffer << "selected victim tag with set index " << (*victim).set_index << "\n";
+						}						
+						
+						// now replace the victim with the new stuff
+						(*victim).set_index = tags[tags_index];
+						(*victim).valid = true;
+						(*victim).used = false;
+						(*victim).prefetched = prefetched;
+						(*victim).ts = currentClockCycle;						
+					}
 					// LRU replacement based on time stamps
-					if(tagReplacement == tag_lru)
+					else if(tagReplacement == tag_lru)
 					{
 						bool search_init = true;
 						bool found_used = false;
@@ -457,6 +527,31 @@ namespace HybridSim {
 					return 2;
 				else
 					return 1;
+			}
+		}
+		// search the buffer for the adjacent sets tags
+		if(tagReplacement == tag_nnn)
+		{
+			for(uint64_t set_index_var = set_index+1; set_index_var < set_index+9; set_index_var++)
+			{
+				uint64_t tag_buffer_set2;
+				if(ENABLE_SET_CHANNEL_INTERLEAVE)
+				{
+					tag_buffer_set2 = ((set_index_var) / NUM_CHANNELS) % NUM_TAG_SETS;
+				}
+				else
+			        {
+					tag_buffer_set2 = (set_index_var) % NUM_TAG_SETS;
+				}
+
+				for(std::list<tag_line>::iterator it = tag_buffer[tag_buffer_set2].begin(); it != tag_buffer[tag_buffer_set2].end(); it++)
+			        {
+					if((*it).set_index == (set_index_var))
+				        {	
+						// update the timestamp (not sure if this is the right way to go about this)
+						(*it).ts = currentClockCycle;
+					}
+				}
 			}
 		}
 		if(DEBUG_COMBO_TAG)
