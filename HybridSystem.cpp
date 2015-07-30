@@ -128,7 +128,7 @@ namespace HybridSim {
 
 		cout << "num rows are " << NUM_ROWS << "\n";
 		cout << "base cache pages are " << CACHE_PAGES << "\n";
-		cout << "cache pages are " << ACTUAL_CACHE_PAGES << "\n";
+		cout << "cache pages are " << CACHE_PAGES << "\n";
 		if(ENABLE_TAG_BUFFER == 0 && ENABLE_TAG_PREFETCH == 1)
 		{
 			cout << "WARNING PREFETCHING TAGS BUT NO BUFFER TO STORE THEM \n";
@@ -2527,7 +2527,7 @@ namespace HybridSim {
 		if (PREFILL_CACHE)
 		{
 			// Fill the cache table.
-			for (uint64_t i=0; i<ACTUAL_CACHE_PAGES; i++)
+			for (uint64_t i=0; i<CACHE_PAGES; i++)
 			{
 				uint64_t cache_addr = i*PAGE_SIZE;
 				cache_line line;
@@ -2573,9 +2573,9 @@ namespace HybridSim {
 				abort();
 			}
 			inFile >> tmp;
-			if (tmp != ACTUAL_CACHE_PAGES)
+			if (tmp != CACHE_PAGES)
 			{
-				cerr << "ERROR: Attempted to restore state and ACTUAL_CACHE_PAGES does not match in restore file and ini file."  << "\n";
+				cerr << "ERROR: Attempted to restore state and CACHE_PAGES does not match in restore file and ini file."  << "\n";
 				abort();
 			}
 			inFile >> tmp;
@@ -2634,9 +2634,9 @@ namespace HybridSim {
 			}
 			cerr << "PERFORMING SAVE OF CACHE TABLE!!!\n";
 
-			savefile << PAGE_SIZE << " " << SET_SIZE << " " << ACTUAL_CACHE_PAGES << " " << TOTAL_PAGES << "\n";
+			savefile << PAGE_SIZE << " " << SET_SIZE << " " << CACHE_PAGES << " " << TOTAL_PAGES << "\n";
 
-			for (uint64_t i=0; i < ACTUAL_CACHE_PAGES; i++)
+			for (uint64_t i=0; i < CACHE_PAGES; i++)
 			{
 				uint64_t cache_addr= i * PAGE_SIZE;
 
@@ -2902,7 +2902,7 @@ namespace HybridSim {
 		uint64_t next_addr = addr + PAGE_SIZE;
 
 		//cout << "next_addr = " << next_addr << endl;
-		if (next_addr < (ACTUAL_CACHE_PAGES * PAGE_SIZE))
+		if (next_addr < (CACHE_PAGES * PAGE_SIZE))
 		{
 			// Issue SYNC_ALL_COUNTER transaction to next_addr.
 			// This is what iterates through all lines.
