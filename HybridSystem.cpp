@@ -387,7 +387,7 @@ namespace HybridSim {
 		// Process CACHE transaction queue until it is empty or addTransaction returns false.
 		// Note: This used to be a while, but was changed ot an if to only allow one
 		// transaction to be sent to the CACHE per cycle.
-		bool not_full = false;
+		bool not_full = true;
 		if (not_full && !cache_queue.empty())
 		{
 			Transaction tmp = cache_queue.front();
@@ -397,7 +397,12 @@ namespace HybridSim {
 			else
 				isWrite = false;
 			DRAMSim::DRAMSimTransaction *dsim_cache_trans = back->makeTransaction(isWrite, tmp.address);
-			not_full = llcache->addTransaction(dsim_cache_trans);
+			
+			if(dsim_cache_trans != NULL)
+			        not_full = llcache->addTransaction(dsim_cache_trans);
+			else
+			        not_full = false;
+
 			if (not_full)
 			{
 				cache_queue.pop_front();
@@ -408,7 +413,7 @@ namespace HybridSim {
 		// Process Back transaction queue until it is empty or addTransaction returns false.
 		// Note: This used to be a while, but was changed ot an if to only allow one
 		// transaction to be sent to the back per cycle.
-		not_full = false;
+		not_full = true;
 		if (not_full && !back_queue.empty())
 		{
 			bool isWrite;
@@ -419,7 +424,12 @@ namespace HybridSim {
 			else
 				isWrite = false;
 			DRAMSim::DRAMSimTransaction *dsim_back_trans = back->makeTransaction(isWrite, tmp.address);
-			not_full = back->addTransaction(dsim_back_trans);
+
+			if(dsim_back_trans != NULL)
+			        not_full = back->addTransaction(dsim_back_trans);
+			else
+			        not_full = false;
+
 			if (not_full)
 			{
 				back_queue.pop_front();
