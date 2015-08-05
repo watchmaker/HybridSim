@@ -761,7 +761,7 @@ namespace HybridSim {
 		if (hit)
 		{
 			// Lock the line that was hit (so it cannot be selected as a victim while being processed).
-			contention_cache_line_lock(cache_address);
+		  contention_cache_line_lock(cache_address, set_index);
 
 			if ((ENABLE_STREAM_BUFFER) && 
 					((trans.transactionType == DATA_READ) || (trans.transactionType == DATA_WRITE)))
@@ -872,7 +872,7 @@ namespace HybridSim {
 				contention_victim_lock(victim_back_addr);
 
 			// Lock the cache line so no one else tries to use it while this miss is being serviced.
-			contention_cache_line_lock(cache_address);
+			contention_cache_line_lock(cache_address, set_index);
 
 
 			if (DEBUG_CACHE)
@@ -1017,7 +1017,7 @@ namespace HybridSim {
 				debug_set_addresses << "way 0  address is: " << cache_address << " (hex: " << hex << cache_address << dec << " )\n";
 			}
 			
-			contention_cache_line_lock(cache_address);
+			contention_cache_line_lock(cache_address, set_index);
 			CacheRead(trans.address, addr, cache_address, trans, true);
 		}
 		// we're implementing the loh cache so we're issuing a cache lookup transaction to the first way in the set
@@ -1071,7 +1071,7 @@ namespace HybridSim {
 					debug_set_addresses << "cache tag address " << cache_address << "\n";
 				}
 				
-				contention_cache_line_lock(cache_address);
+				contention_cache_line_lock(cache_address, set_index);
 				CacheRead(trans.address, addr, cache_address, trans, true);
 			}
 			
@@ -1094,7 +1094,7 @@ namespace HybridSim {
 				debug_set_addresses << "way 0  address is: " << cache_address << " (hex: " << hex << cache_address << dec << " )\n";
 			}
 			
-			contention_cache_line_lock(cache_address);
+			contention_cache_line_lock(cache_address, set_index);
 			CacheRead(trans.address, addr, cache_address, trans, true);
 		}	
 	}
@@ -1219,7 +1219,7 @@ namespace HybridSim {
 				}
 
 				// lock this cache page
-				contention_cache_line_lock(curr_tag_addr);
+				contention_cache_line_lock(curr_tag_addr, set_index);
 				
 				// now add the transaction
 				Transaction t = Transaction(DATA_READ, curr_tag_addr, NULL);
@@ -1672,7 +1672,7 @@ namespace HybridSim {
 			
 			Transaction t = Transaction(p.type, p.orig_addr, NULL);
             // Do not erase the page from the pending set yet because we're still working with it
-			contention_cache_line_unlock(p.cache_addr);
+			contention_cache_line_unlock(p.cache_addr, SET_INDEX(p.back_addr));
 			HitCheck(t, false);
 		}
 		else if(assocVersion == combo_tag && !line_read && !p.callback_sent && p.op == TAG_READ)
@@ -1735,7 +1735,7 @@ namespace HybridSim {
 			
 			Transaction t = Transaction(p.type, p.orig_addr, NULL);
             // Do not erase the page from the pending set yet because we're still working with it
-			contention_cache_line_unlock(p.cache_addr);
+			contention_cache_line_unlock(p.cache_addr, SET_INDEX(p.back_addr));
 			HitCheck(t, true);
 		}
 		else if(assocVersion == combo_tag && !line_read && !p.callback_sent && p.op == TAG_PREFETCH)
@@ -1793,7 +1793,7 @@ namespace HybridSim {
 				}
 			}
 
-			contention_cache_line_unlock(p.cache_addr);
+			contention_cache_line_unlock(p.cache_addr, SET_INDEX(p.back_addr));
 			// we're done here
 			// no need to do anything more with these
 		}
@@ -1815,7 +1815,7 @@ namespace HybridSim {
 			
 			Transaction t = Transaction(p.type, p.orig_addr, NULL);
 			// However, do not totally unlock the page from the pending set yet because we're still working with it
-			contention_cache_line_unlock(p.cache_addr);
+			contention_cache_line_unlock(p.cache_addr, SET_INDEX(p.back_addr));
 			HitCheck(t, false);
 		}
 		else
@@ -2700,7 +2700,7 @@ namespace HybridSim {
 
 			// If the cache line is valid, unlock it.
 			if (cache_line_valid)
-				contention_cache_line_unlock(cache_addr);
+			        contention_cache_line_unlock(cache_addr, SET_INDEX(back_addr));
 
 			// Restart queue checking.
 			this->check_queue = true;
@@ -2737,7 +2737,7 @@ namespace HybridSim {
 
 			// If the cache line is valid, unlock it.
 			if (cache_line_valid)
-				contention_cache_line_unlock(cache_addr);
+			        contention_cache_line_unlock(cache_addr, SET_INDEX(back_addr));
 
 			// Restart queue checking.
 			this->check_queue = true;
@@ -2820,21 +2820,20 @@ namespace HybridSim {
 		assert(num == 1);
 	}
 
-	void HybridSystem::contention_cache_line_lock(uint64_t cache_addr)
+        void HybridSystem::contention_cache_line_lock(uint64_t cache_addr, uint64_t set_index)
 	{
 		cache_line cur_line = cache[cache_addr];
 		cur_line.locked = true;
 		cur_line.lock_count++;
 		cache[cache_addr] = cur_line;
 
-		uint64_t set_index = SET_INDEX(cache_addr);
 		if (set_counter.count(set_index) == 0)
 			set_counter[set_index] = 1;
 		else
 			set_counter[set_index] += 1;
 	}
 
-	void HybridSystem::contention_cache_line_unlock(uint64_t cache_addr)
+        void HybridSystem::contention_cache_line_unlock(uint64_t cache_addr, uint64_t set_index)
 	{
 		cache_line cur_line = cache[cache_addr];
 		cur_line.lock_count--;
@@ -2843,7 +2842,6 @@ namespace HybridSim {
 			cur_line.locked = false; // Only unlock if the count for outstanding accesses is 0.
 		cache[cache_addr] = cur_line;
 
-		uint64_t set_index = SET_INDEX(cache_addr);
 		set_counter[set_index] -= 1;
 	}
 
@@ -2878,13 +2876,13 @@ namespace HybridSim {
 
 		cache_line cur_line = cache[cache_address];
 
-		uint64_t victim_back_addr = BACK_ADDRESS(cur_line.tag, SET_INDEX(cache_address));
+		uint64_t victim_back_addr = BACK_ADDRESS(cur_line.tag, SET_INDEX(addr));
 
 		// The address in the cache line should be the SAME as the address we are syncing on.
 		assert(victim_back_addr == addr);
 
 		// Lock the cache line so no one else tries to use it while this miss is being serviced.
-		contention_cache_line_lock(cache_address);
+		contention_cache_line_lock(cache_address, SET_INDEX(addr));
 	
 		Pending p;
 		p.orig_addr = trans.address;
