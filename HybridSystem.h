@@ -140,8 +140,8 @@ namespace HybridSim
 		void contention_decrement(uint64_t back_addr);
 		void contention_victim_lock(uint64_t page_addr);
 		void contention_victim_unlock(uint64_t page_addr);
-		void contention_cache_line_lock(uint64_t cache_addr);
-		void contention_cache_line_unlock(uint64_t cache_addr);
+		void contention_cache_line_lock(uint64_t cache_addr, uint64_t set_index);
+		void contention_cache_line_unlock(uint64_t cache_addr, uint64_t set_index);
 
 
 		// Prefetch Functions
