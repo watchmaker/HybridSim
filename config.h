@@ -215,6 +215,7 @@ extern uint64_t NUM_TAG_WAYS;
 extern uint64_t NUM_TAG_SETS;
 extern uint64_t SETS_PER_LINE;
 extern uint64_t SETS_PER_TAG_GROUP;
+extern uint64_t TAG_PAGES_PER_LINE;
 extern uint64_t ENABLE_TAG_BUFFER;
 extern uint64_t ENABLE_SET_CHANNEL_INTERLEAVE;
 extern uint64_t ENABLE_TAG_PREFETCH;
@@ -229,11 +230,12 @@ extern uint64_t BANKS_PER_RANK;
 extern uint64_t ROWS_PER_BANK;
 extern uint64_t COL_PER_ROW;
 
-#define EXTRA_SETS_FOR_ZERO_GROUP (SETS_PER_LINE % SETS_PER_TAG_GROUP)
+#define EXTRA_SETS_FOR_ZERO_GROUP (SETS_PER_LINE % TAG_PAGES_PER_LINE)
 // number of accesses at the front of a row that are reserved for tags
-#define TAG_OFFSET ((SETS_PER_LINE - EXTRA_SETS_FOR_ZERO_GROUP) / SETS_PER_TAG_GROUP) 
+// simplified this to enable some more variation in tag layout
+#define TAG_OFFSET (TAG_PAGES_PER_LINE) 
 // number of accesses that are wasted  because we can't always fill a row evenly with tags and data
-#define WASTE_OFFSET (COL_PER_ROW - ((SETS_PER_LINE / SETS_PER_TAG_GROUP) + (SETS_PER_LINE * SET_SIZE)))
+#define WASTE_OFFSET (COL_PER_ROW - ((TAG_PAGES_PER_LINE) + (SETS_PER_LINE * SET_SIZE)))
 // update the cache page variable to reflect the wasted cache pages due to tag storage
 #define NUM_ROWS (NUM_CHANNELS * RANKS_PER_CHANNEL * BANKS_PER_RANK * ROWS_PER_BANK)
 

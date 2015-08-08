@@ -939,9 +939,10 @@ namespace HybridSim {
 		}
 			
 		uint64_t set_index_pos = 0;
-		if(set_index_mod < (SETS_PER_TAG_GROUP + EXTRA_SETS_FOR_ZERO_GROUP))
+
+		if(set_index_mod < ((SETS_PER_TAG_GROUP + 1) * EXTRA_SETS_FOR_ZERO_GROUP))
 		{
-			set_index_pos = (set_index_mod) / (SETS_PER_TAG_GROUP + EXTRA_SETS_FOR_ZERO_GROUP);
+			set_index_pos = (set_index_mod) / (SETS_PER_TAG_GROUP + 1);
 		}
 		else
 		{
