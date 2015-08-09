@@ -86,8 +86,8 @@ namespace HybridSim {
 			}	
 		}
 
-		last_set_accessed = NUM_SETS+1;
-		access_stride_histogram = vector<uint64_t>(NUM_SETS, 0);
+		last_sets_accessed = vector<uint64_t> (8, NUM_SETS+1);
+		access_stride_histogram = vector<vector<uint64_t> >(8, vector<uint64_t>(NUM_SETS, 0));
 	}
 
 	// right now this just steps to keep the clock cycle count accurate for 
@@ -678,17 +678,32 @@ namespace HybridSim {
 
 		if(ENABLE_STRIDE_LOG)
 		{
-			if(last_set_accessed != NUM_SETS+1)
+			for(int s = 7; s >= 0; s--)
 			{
-				uint64_t stride_length;
-				if(set_index >= last_set_accessed)
-					stride_length = set_index - last_set_accessed;
+				if(last_sets_accessed[s] != NUM_SETS+1)
+				{
+					uint64_t stride_length;
+					if(set_index >= last_sets_accessed[s])
+						stride_length = set_index - last_sets_accessed[s];
+					else
+						stride_length = last_sets_accessed[s] - set_index;
+					uint64_t temp = access_stride_histogram[s][stride_length];
+					access_stride_histogram[s][stride_length] = temp + 1;
+				}
+				if(s == 0)
+				{
+					// the old entry for this last set has already been copied
+					// so we can just overwrite it
+					last_sets_accessed[s] = set_index;
+				}
 				else
-					stride_length = last_set_accessed - set_index;
-				uint64_t temp = access_stride_histogram[stride_length];
-				access_stride_histogram[stride_length] = temp + 1;
+				{
+					// overwrite the set_index that we just compared against with the
+					// next one up in the queue
+					// this should wind up making this thing look like a FIFO
+					last_sets_accessed[s] = last_sets_accessed[s-1];
+				}
 			}
-			last_set_accessed = set_index;
 		}
 
 		/*if(ENABLE_TAG_BUFFER_USAGE_LOG)
@@ -844,12 +859,16 @@ namespace HybridSim {
 	{
 		record_strides << "********************************************\n";
 		record_strides << ">>>>>>> Stride Histogram <<<<<<<<\n";
-		for(uint64_t h = 0; h < NUM_SETS; h++)
+		for(uint64_t si = 0; si < 8; si++)
 		{
-			// we're really only interested in the strides that actually happened
-			if(access_stride_histogram[h] > 0)
+			record_strides << ">>>>>>>> Stides that are " << si << " accesses away <<<<<<<< \n";
+			for(uint64_t h = 0; h < NUM_SETS; h++)
 			{
-				record_strides << "stride " << h << " : " << access_stride_histogram[h] << "\n";
+				// we're really only interested in the strides that actually happened
+				if(access_stride_histogram[si][h] > 0)
+				{
+					record_strides << "stride " << h << " : " << access_stride_histogram[si][h] << "\n";
+				}
 			}
 		}
 		record_strides.flush();
