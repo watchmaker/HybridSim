@@ -72,6 +72,8 @@ namespace HybridSim {
 		cerr << "Creating Cache using DRAMSim with device ini " << cache_dram_ini << " and system ini " << cache_sys_ini << "\n";
 		uint64_t cache_size = (CACHE_PAGES * PAGE_SIZE) >> 20;
 		llcache = DRAMSim::getMemorySystemInstance(cache_dram_ini, cache_sys_ini, inipathPrefix, "cacheresultsfilename", cache_size);
+		// set the CPU clock frequency
+		llcache->setCPUClockSpeed(CYCLES_PER_SECOND);
 	
 		std::vector<uint64_t> cache_dims = llcache->returnDimensions();
 		// Make sure that we have all of the dimensions that we need
@@ -92,6 +94,8 @@ namespace HybridSim {
 		back_size = (back_size == 0) ? 1 : back_size; // DRAMSim requires a minimum of 1 MB, even if HybridSim isn't going to use it.
 		back_size = (OVERRIDE_DRAM_SIZE == 0) ? back_size : OVERRIDE_DRAM_SIZE; // If OVERRIDE_DRAM_SIZE is non-zero, then use it.
 		back = DRAMSim::getMemorySystemInstance(back_dram_ini, back_sys_ini, inipathPrefix, "backresultsfilename", back_size);
+		// set the CPU clock frequency
+		back->setCPUClockSpeed(CYCLES_PER_SECOND);
 		cerr << "Done with creating memories" << endl;
 		
 		// Set up the callbacks for Cache DRAM.
@@ -517,12 +521,13 @@ namespace HybridSim {
 			}
 		}
 
+		// NOTE: Commenting this out just incase it causes problems with MARSS
 		// adjust the address so that it is not too large for our memory system
-		if(trans.address > (TOTAL_PAGES*PAGE_SIZE))
-		{
-			uint64_t temp_address = trans.address << (64-(totalBitWidth-1));
-			trans.address = temp_address >> (64-(totalBitWidth-1));
-		}
+		//if(trans.address > (TOTAL_PAGES*PAGE_SIZE))
+		//{
+		//	uint64_t temp_address = trans.address << (64-(totalBitWidth-1));
+		//	trans.address = temp_address >> (64-(totalBitWidth-1));
+		//}
 
 		pending_count += 1;
 
