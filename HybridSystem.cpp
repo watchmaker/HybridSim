@@ -1502,8 +1502,7 @@ namespace HybridSim {
 		cache_line cur_line = cache[p.cache_addr];
 		cur_line.tag = TAG(p.back_addr);
 		cur_line.dirty = false;
-		cur_line.valid = true;
-		cur_line.ts = currentClockCycle;
+		cur_line.valid = true;		
 		cur_line.used = false;
 		cur_line.access_count = 1; // PaulMod: To support lfu
 		if (p.type == PREFETCH)
@@ -1511,9 +1510,20 @@ namespace HybridSim {
 			cur_line.prefetched = true;
 			total_prefetches++;
 			unused_prefetches++;
+
+			// use this option to set the replacement priority for prefetches to be very low
+			if(LOW_PRIORITY_PREFETCH)
+			{
+				cur_line.ts = 0;
+			}
+			else
+			{
+				cur_line.ts = currentClockCycle;
+			}
 		}
 		else
 		{
+			cur_line.ts = currentClockCycle;
 			cur_line.prefetched = false;
 		}
 		cache[p.cache_addr] = cur_line;
@@ -2664,6 +2674,7 @@ namespace HybridSim {
 
 		if (ENABLE_RESTORE)
 		{
+			uint64_t last_timestamp = 0;
 			cerr << "PERFORMING RESTORE OF CACHE TABLE!!!\n";
 
 			ifstream inFile;
@@ -2722,6 +2733,11 @@ namespace HybridSim {
 					line.dirty = 0;
 				}
 
+				if (line.ts > last_timestamp)
+				{
+					last_timestamp = line.ts;
+				}
+
 				// The line must not be locked on restore.
 				// This is a point of weirdness with the replay warmup design (since we can't restore the system
 				// exactly as it was), but it is unavoidable. In flight transactions are simply lost. Although, if
@@ -2733,6 +2749,10 @@ namespace HybridSim {
 			}
 		
 			inFile.close();
+
+			// set our current clock cycle to be whatever the last time stamp we had was
+			// this will keep warmed up data from having priority for too long
+			set_cycle(last_timestamp);
 
 			// not worrying about NVDIMM's state right now
 			//llcache->loadNVState(NVDIMM_RESTORE_FILE);
