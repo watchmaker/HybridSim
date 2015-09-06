@@ -67,8 +67,9 @@ namespace HybridSim
 		void CacheReadCallback(uint id, uint64_t addr, uint64_t cycle);
 		void CacheWriteCallback(uint id, uint64_t addr, uint64_t cycle);
 
-		void BackReadCallback(uint id, uint64_t addr, uint64_t cycle);
-		void BackWriteCallback(uint id, uint64_t addr, uint64_t cycle);
+		void BackReadCallback(uint64_t id, uint64_t addr, uint64_t cycle, bool unmapped);
+		void BackWriteCallback(uint64_t id, uint64_t addr, uint64_t cycle, bool unmapped);
+		void BackCriticalLineCallback(uint64_t id, uint64_t addr, uint64_t cycle, bool unmapped);
 
 		// Functions to run the callbacks to the module using HybridSim.
 		void ReadDoneCallback(uint systemID, uint64_t orig_addr, uint64_t cycle);
@@ -169,7 +170,7 @@ namespace HybridSim
 
 		DRAMSim::DRAMSimInterface *llcache;
 
-		DRAMSim::DRAMSimInterface *back;
+		NVDSim::NVDIMM *back;
 
 		unordered_map<uint64_t, cache_line> cache;
 

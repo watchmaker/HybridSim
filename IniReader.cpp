@@ -103,8 +103,7 @@ uint64_t CYCLES_PER_SECOND = 667000000;
 // INI files
 string cache_dram_ini = "ini/LPDDR3_micron.ini";
 string cache_sys_ini = "ini/cache_system.ini";
-string back_dram_ini = "ini/LPDDR3_micron.ini";
-string back_sys_ini = "ini/back_system.ini";
+string nvdimm_ini = "ini/nvdimm.ini";
 
 // Save/Restore options
 uint64_t ENABLE_RESTORE = 0;
@@ -345,10 +344,8 @@ string NVDIMM_SAVE_FILE = "none";
 				cache_dram_ini = value;
 			else if (key.compare("cache_sys_ini") == 0)
 				cache_sys_ini = value;
-			else if (key.compare("back_dram_ini") == 0)
-				back_dram_ini = value;
-			else if (key.compare("back_sys_ini") == 0)
-				back_sys_ini = value;
+			else if (key.compare("nvdimm_ini") == 0)
+				nvdimm_ini = value;
 			else if (key.compare("ENABLE_RESTORE") == 0)
 				convert_uint64_t(ENABLE_RESTORE, value, key);
 			else if (key.compare("ENABLE_SAVE") == 0)
