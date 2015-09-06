@@ -400,7 +400,7 @@ namespace HybridSim {
 				isWrite = true;
 			else
 				isWrite = false;
-			DRAMSim::DRAMSimTransaction *dsim_cache_trans = back->makeTransaction(isWrite, tmp.address);
+			DRAMSim::DRAMSimTransaction *dsim_cache_trans = llcache->makeTransaction(isWrite, tmp.address);
 			
 			if(dsim_cache_trans != NULL)
 			        not_full = llcache->addTransaction(dsim_cache_trans);
