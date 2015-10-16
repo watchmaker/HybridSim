@@ -1100,8 +1100,6 @@ namespace HybridSim {
 			cerr << "ISSUING PREFETCHES \n";
 			cerr << "prefetching for set index " << set_index << "\n";
 		}
-		// get the base address stuff
-		AddressSet address_stuff = decoder.getDecode(data_address);
 
 		// get the set index mod
 		uint64_t set_index_mod = 0;
@@ -1120,22 +1118,29 @@ namespace HybridSim {
 		uint64_t temp_set = 0;
 		uint64_t set_index_align = 0;
 		uint64_t set_group_pos = 0;
-		if(set_index_mod < (SETS_PER_TAG_GROUP + EXTRA_SETS_FOR_ZERO_GROUP))
-		{
-			set_group_pos = (set_index_mod) % (SETS_PER_TAG_GROUP + EXTRA_SETS_FOR_ZERO_GROUP);
-			set_index_pos = (set_index_mod - EXTRA_SETS_FOR_ZERO_GROUP) % (SETS_PER_LINE / SETS_PER_TAG_GROUP);
+		if(set_index_mod < ((SETS_PER_TAG_GROUP + 1) * EXTRA_SETS_FOR_ZERO_GROUP))
+		{		
+			// we need the set index for the first set in this group so we can align all the rest of the sets
+			// and then get the addresses just like we normally do for a standard access
+			// first we see where we are in the tag group
+			set_group_pos = (set_index_mod) % (SETS_PER_TAG_GROUP + 1);
+			set_index_pos = (set_index_mod) / (SETS_PER_TAG_GROUP + 1);
+			// we subtract our tag group offset in order to get the first set in our tag group
 			set_index_align = set_index - set_group_pos;
-			//temp_set = set_index_align + (SETS_PER_TAG_GROUP + EXTRA_SETS_FOR_ZERO_GROUP);
-			// we start with the set that starts the row
+			// we now have the correct set index for the start of the tag group
 			temp_set = set_index_align;
 		}
 		else
 		{
+			// we need the set index for the first set in this group so we can align all the rest of the sets
+			// and then get the addresses just like we normally do for a standard access
+			// first we see where we are in the tag group
 			set_group_pos = (set_index_mod-EXTRA_SETS_FOR_ZERO_GROUP) % (SETS_PER_TAG_GROUP);
-			set_index_pos = set_index_mod % (SETS_PER_LINE / SETS_PER_TAG_GROUP);
+			set_index_pos = (set_index_mod-EXTRA_SETS_FOR_ZERO_GROUP) / (SETS_PER_TAG_GROUP);
+			// we subtract our tag group offset in order to get the first set in our tag group
 			set_index_align = set_index - set_group_pos;
-			// we start with the set that starts the row
-			temp_set = set_index_align - ((SETS_PER_TAG_GROUP + EXTRA_SETS_FOR_ZERO_GROUP) + ((((set_index_mod-EXTRA_SETS_FOR_ZERO_GROUP) / SETS_PER_TAG_GROUP) - 1) * SETS_PER_TAG_GROUP));
+			// we now have the correct set index for the start of the tag group
+			temp_set = set_index_align;
 		}
 		
 		if(DEBUG_TAG_PREFETCH)
@@ -1160,28 +1165,22 @@ namespace HybridSim {
 			index_max = set_index_pos+TAG_PREFETCH_WINDOW+1;
 		}
 
-		uint64_t curr_set_addr = (address_stuff.channel + (address_stuff.rank * (NUM_CHANNELS)) + (address_stuff.bank * (NUM_CHANNELS * RANKS_PER_CHANNEL)) + (address_stuff.row * (NUM_CHANNELS * RANKS_PER_CHANNEL * BANKS_PER_RANK)) + (set_index_pos * NUM_ROWS)) * PAGE_SIZE;
-		decoder.getDecode(curr_set_addr);
-
 		// only prefetch going forward
-		// set_index_pos should be tags that we already have
-		uint64_t temp_index_pos = set_index_pos;
-		uint64_t temp_chan = address_stuff.channel;
-		if(temp_index_pos >= ((SETS_PER_LINE-EXTRA_SETS_FOR_ZERO_GROUP) / SETS_PER_TAG_GROUP))
+		if(set_index_mod < ((SETS_PER_TAG_GROUP + 1) * EXTRA_SETS_FOR_ZERO_GROUP))
 		{
-			temp_index_pos = 0;
-			temp_chan = temp_chan+1;
-			// if we're at the last chan then just stop
-			// might want to add some looping stuff here later but lets see how we do
-			if(temp_chan >= NUM_CHANNELS)
-			{
-				return;
-			}
+			temp_set = temp_set + SETS_PER_TAG_GROUP + 1;
+		}
+		else
+		{
+			temp_set = temp_set + SETS_PER_TAG_GROUP;
 		}
 	
 		for(uint64_t prefetch_index = set_index_pos; prefetch_index < index_max; prefetch_index++)
 		{		
-			uint64_t curr_tag_addr = (temp_chan + (address_stuff.rank * (NUM_CHANNELS)) + (address_stuff.bank * (NUM_CHANNELS * RANKS_PER_CHANNEL)) + (address_stuff.row * (NUM_CHANNELS * RANKS_PER_CHANNEL * BANKS_PER_RANK)) + (temp_index_pos * NUM_ROWS)) * PAGE_SIZE;
+			// get the address for the current set
+			uint64_t curr_data_addr =  getComboDataAddr(temp_set, 0);
+			// get the actual address for this current tag group we're prefetching
+			uint64_t curr_tag_addr = getComboTagAddr(temp_set, curr_data_addr);
 	
 			if(DEBUG_TAG_PREFETCH)
 			{
@@ -1236,25 +1235,13 @@ namespace HybridSim {
 				// Assertions for "this can't happen" situations.
 				assert(cache_pending.count(curr_tag_addr) != 0);	
 			}
-			temp_index_pos = temp_index_pos+1;
-			if(temp_index_pos >= (SETS_PER_LINE / SETS_PER_TAG_GROUP))
-			{
-				temp_index_pos = 0;
-				temp_chan = temp_chan+1;
-				// if we're at the last chan then just stop
-				// might want to add some looping stuff here later but lets see how we do
-				if(temp_chan >= NUM_CHANNELS)
-				{
-					break;
-				}
-			}
 			
 			// move the set index pointer forward so we're pointing at the next set of tags
-			uint64_t temp_pos_mod = prefetch_index % (SETS_PER_LINE / SETS_PER_TAG_GROUP);
+			uint64_t temp_index_mod = temp_set % SETS_PER_LINE;
 			// if we're at the end of a row's tag sets then we'll have a big tag set next
-			if(temp_pos_mod == 0)
+			if(temp_index_mod < ((SETS_PER_TAG_GROUP + 1) * EXTRA_SETS_FOR_ZERO_GROUP))
 			{
-				temp_set = temp_set + (SETS_PER_TAG_GROUP + EXTRA_SETS_FOR_ZERO_GROUP);
+				temp_set = temp_set + SETS_PER_TAG_GROUP + 1;
 			}
 			else
 			{
