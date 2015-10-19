@@ -1213,7 +1213,7 @@ namespace HybridSim {
 				}
 
 				// lock this cache page
-				contention_cache_line_lock(curr_tag_addr, set_index);
+				contention_cache_line_lock(curr_tag_addr, temp_set);
 				
 				// now add the transaction
 				Transaction t = Transaction(DATA_READ, curr_tag_addr, NULL);
@@ -1677,11 +1677,14 @@ namespace HybridSim {
 			if(ENABLE_SET_CHANNEL_INTERLEAVE)
 			{
 				uint64_t set_index_mod = (set_index / NUM_CHANNELS) % SETS_PER_LINE;
+				uint64_t set_group_pos = 0;
 				uint64_t set_index_start = 0;
-				if(set_index_mod < (SETS_PER_TAG_GROUP + EXTRA_SETS_FOR_ZERO_GROUP))
+				if(set_index_mod < ((SETS_PER_TAG_GROUP + 1) * EXTRA_SETS_FOR_ZERO_GROUP))
 				{
-					vector<uint64_t> tags = vector<uint64_t> (SETS_PER_TAG_GROUP + EXTRA_SETS_FOR_ZERO_GROUP, 0);
-					set_index_start = set_index - (set_index_mod * NUM_CHANNELS);
+					vector<uint64_t> tags = vector<uint64_t> (SETS_PER_TAG_GROUP + 1, 0);
+					set_group_pos = (set_index_mod) % (SETS_PER_TAG_GROUP + 1);
+					set_index_start = set_index - set_group_pos;
+					
 					for(uint64_t i=0; i<(SETS_PER_TAG_GROUP + EXTRA_SETS_FOR_ZERO_GROUP); i++)
 					{
 						tags[i] = set_index_start+(i*NUM_CHANNELS);
@@ -1691,7 +1694,8 @@ namespace HybridSim {
 				else
 				{
 					vector<uint64_t> tags = vector<uint64_t> (SETS_PER_TAG_GROUP, 0);
-					set_index_start = set_index - (((set_index_mod-EXTRA_SETS_FOR_ZERO_GROUP) % SETS_PER_TAG_GROUP)  * NUM_CHANNELS);
+					set_group_pos = (set_index_mod-EXTRA_SETS_FOR_ZERO_GROUP) % (SETS_PER_TAG_GROUP);
+					set_index_start = set_index - set_group_pos;
 					for(uint64_t i=0; i<SETS_PER_TAG_GROUP; i++)
 					{
 						tags[i] = set_index_start+(i*NUM_CHANNELS);
@@ -1702,11 +1706,13 @@ namespace HybridSim {
 			else
 			{
 				uint64_t set_index_mod = (set_index) % SETS_PER_LINE;
+				uint64_t set_group_pos = 0;
 				uint64_t set_index_start = 0;
-				if(set_index_mod < (SETS_PER_TAG_GROUP + EXTRA_SETS_FOR_ZERO_GROUP))
+				if(set_index_mod < ((SETS_PER_TAG_GROUP + 1) * EXTRA_SETS_FOR_ZERO_GROUP))
 				{
 					vector<uint64_t> tags = vector<uint64_t> (SETS_PER_TAG_GROUP + EXTRA_SETS_FOR_ZERO_GROUP, 0);
-					set_index_start = set_index - set_index_mod;
+					set_group_pos = (set_index_mod) % (SETS_PER_TAG_GROUP + 1);
+					set_index_start = set_index - set_group_pos;
 					for(uint64_t i=0; i<(SETS_PER_TAG_GROUP + EXTRA_SETS_FOR_ZERO_GROUP); i++)
 					{
 						tags[i] = set_index_start+i;
@@ -1716,7 +1722,8 @@ namespace HybridSim {
 				else
 				{
 					vector<uint64_t> tags = vector<uint64_t> (SETS_PER_TAG_GROUP, 0);
-					set_index_start = set_index - ((set_index_mod-EXTRA_SETS_FOR_ZERO_GROUP) % SETS_PER_TAG_GROUP);
+					set_group_pos = (set_index_mod-EXTRA_SETS_FOR_ZERO_GROUP) % (SETS_PER_TAG_GROUP);
+					set_index_start = set_index - set_group_pos;
 					for(uint64_t i=0; i<SETS_PER_TAG_GROUP; i++)
 					{
 						tags[i] = set_index_start+i;
@@ -1737,11 +1744,13 @@ namespace HybridSim {
 			if(ENABLE_SET_CHANNEL_INTERLEAVE)
 			{
 				uint64_t set_index_mod = (set_index / NUM_CHANNELS) % SETS_PER_LINE;
+				uint64_t set_group_pos = 0;
 				uint64_t set_index_start = 0;
-				if(set_index_mod < (SETS_PER_TAG_GROUP + EXTRA_SETS_FOR_ZERO_GROUP))
+				if(set_index_mod < ((SETS_PER_TAG_GROUP + 1) * EXTRA_SETS_FOR_ZERO_GROUP))
 				{
 					vector<uint64_t> tags = vector<uint64_t> (SETS_PER_TAG_GROUP + EXTRA_SETS_FOR_ZERO_GROUP, 0);
-					set_index_start = set_index - (set_index_mod * NUM_CHANNELS);
+					set_group_pos = (set_index_mod) % (SETS_PER_TAG_GROUP + 1);
+					set_index_start = set_index - set_group_pos;
 					for(uint64_t i=0; i<(SETS_PER_TAG_GROUP + EXTRA_SETS_FOR_ZERO_GROUP); i++)
 					{
 						tags[i] = set_index_start+(i*NUM_CHANNELS);
@@ -1751,7 +1760,8 @@ namespace HybridSim {
 				else
 				{
 					vector<uint64_t> tags = vector<uint64_t> (SETS_PER_TAG_GROUP, 0);
-					set_index_start = set_index - (((set_index_mod-EXTRA_SETS_FOR_ZERO_GROUP) % SETS_PER_TAG_GROUP)  * NUM_CHANNELS);
+					set_group_pos = (set_index_mod-EXTRA_SETS_FOR_ZERO_GROUP) % (SETS_PER_TAG_GROUP);
+					set_index_start = set_index - set_group_pos;
 					for(uint64_t i=0; i<SETS_PER_TAG_GROUP; i++)
 					{
 						tags[i] = set_index_start+(i*NUM_CHANNELS);
@@ -1762,11 +1772,13 @@ namespace HybridSim {
 			else
 			{
 				uint64_t set_index_mod = (set_index) % SETS_PER_LINE;
+				uint64_t set_group_pos = 0;
 				uint64_t set_index_start = 0;
-				if(set_index_mod < (SETS_PER_TAG_GROUP + EXTRA_SETS_FOR_ZERO_GROUP))
+				if(set_index_mod < ((SETS_PER_TAG_GROUP + 1) * EXTRA_SETS_FOR_ZERO_GROUP))
 				{
 					vector<uint64_t> tags = vector<uint64_t> (SETS_PER_TAG_GROUP + EXTRA_SETS_FOR_ZERO_GROUP, 0);
-					set_index_start = set_index - set_index_mod;
+					set_group_pos = (set_index_mod) % (SETS_PER_TAG_GROUP + 1);
+					set_index_start = set_index - set_group_pos;
 					for(uint64_t i=0; i<(SETS_PER_TAG_GROUP + EXTRA_SETS_FOR_ZERO_GROUP); i++)
 					{
 						tags[i] = set_index_start+i;
@@ -1776,7 +1788,8 @@ namespace HybridSim {
 				else
 				{
 					vector<uint64_t> tags = vector<uint64_t> (SETS_PER_TAG_GROUP, 0);
-					set_index_start = set_index - ((set_index_mod-EXTRA_SETS_FOR_ZERO_GROUP) % SETS_PER_TAG_GROUP);
+					set_group_pos = (set_index_mod-EXTRA_SETS_FOR_ZERO_GROUP) % (SETS_PER_TAG_GROUP);
+					set_index_start = set_index - set_group_pos;
 					for(uint64_t i=0; i<SETS_PER_TAG_GROUP; i++)
 					{
 						tags[i] = set_index_start+i;
@@ -2959,7 +2972,18 @@ namespace HybridSim {
 			cur_line.locked = false; // Only unlock if the count for outstanding accesses is 0.
 		cache[cache_addr] = cur_line;
 
-		set_counter[set_index] -= 1;
+		if (set_counter[set_index] > 0)
+		{		
+			set_counter[set_index] -= 1;
+		}
+		else
+		{
+			cerr << "ERROR: Attempted to decrement the set_counter for index " << set_index << " to less than 0 \n";
+			abort();
+		}
+
+		// Restart queue checking.
+		this->check_queue = true;
 	}
 
 	// PREFETCHING FUNCTIONS
