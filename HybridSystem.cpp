@@ -1695,7 +1695,7 @@ namespace HybridSim {
 					set_group_pos = (set_index_mod) % (SETS_PER_TAG_GROUP + 1);
 					set_index_start = set_index - set_group_pos;
 					
-					for(uint64_t i=0; i<(SETS_PER_TAG_GROUP + EXTRA_SETS_FOR_ZERO_GROUP); i++)
+					for(uint64_t i=0; i<(SETS_PER_TAG_GROUP + 1); i++)
 					{
 						tags[i] = set_index_start+(i*NUM_CHANNELS);
 					}
@@ -1720,10 +1720,10 @@ namespace HybridSim {
 				uint64_t set_index_start = 0;
 				if(set_index_mod < ((SETS_PER_TAG_GROUP + 1) * EXTRA_SETS_FOR_ZERO_GROUP))
 				{
-					vector<uint64_t> tags = vector<uint64_t> (SETS_PER_TAG_GROUP + EXTRA_SETS_FOR_ZERO_GROUP, 0);
+					vector<uint64_t> tags = vector<uint64_t> (SETS_PER_TAG_GROUP + 1, 0);
 					set_group_pos = (set_index_mod) % (SETS_PER_TAG_GROUP + 1);
 					set_index_start = set_index - set_group_pos;
-					for(uint64_t i=0; i<(SETS_PER_TAG_GROUP + EXTRA_SETS_FOR_ZERO_GROUP); i++)
+					for(uint64_t i=0; i<(SETS_PER_TAG_GROUP + 1); i++)
 					{
 						tags[i] = set_index_start+i;
 					}
@@ -1758,10 +1758,10 @@ namespace HybridSim {
 				uint64_t set_index_start = 0;
 				if(set_index_mod < ((SETS_PER_TAG_GROUP + 1) * EXTRA_SETS_FOR_ZERO_GROUP))
 				{
-					vector<uint64_t> tags = vector<uint64_t> (SETS_PER_TAG_GROUP + EXTRA_SETS_FOR_ZERO_GROUP, 0);
+					vector<uint64_t> tags = vector<uint64_t> (SETS_PER_TAG_GROUP + 1, 0);
 					set_group_pos = (set_index_mod) % (SETS_PER_TAG_GROUP + 1);
 					set_index_start = set_index - set_group_pos;
-					for(uint64_t i=0; i<(SETS_PER_TAG_GROUP + EXTRA_SETS_FOR_ZERO_GROUP); i++)
+					for(uint64_t i=0; i<(SETS_PER_TAG_GROUP + 1); i++)
 					{
 						tags[i] = set_index_start+(i*NUM_CHANNELS);
 					}
@@ -1786,10 +1786,10 @@ namespace HybridSim {
 				uint64_t set_index_start = 0;
 				if(set_index_mod < ((SETS_PER_TAG_GROUP + 1) * EXTRA_SETS_FOR_ZERO_GROUP))
 				{
-					vector<uint64_t> tags = vector<uint64_t> (SETS_PER_TAG_GROUP + EXTRA_SETS_FOR_ZERO_GROUP, 0);
+					vector<uint64_t> tags = vector<uint64_t> (SETS_PER_TAG_GROUP + 1, 0);
 					set_group_pos = (set_index_mod) % (SETS_PER_TAG_GROUP + 1);
 					set_index_start = set_index - set_group_pos;
-					for(uint64_t i=0; i<(SETS_PER_TAG_GROUP + EXTRA_SETS_FOR_ZERO_GROUP); i++)
+					for(uint64_t i=0; i<(SETS_PER_TAG_GROUP + 1); i++)
 					{
 						tags[i] = set_index_start+i;
 					}
