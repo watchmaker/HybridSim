@@ -1177,16 +1177,19 @@ namespace HybridSim {
 		}
 
 		// only prefetch going forward
+		uint64_t overall_offset = 0;
 		if(set_index_mod < ((SETS_PER_TAG_GROUP + 1) * EXTRA_SETS_FOR_ZERO_GROUP))
 		{
 			temp_set = temp_set + SETS_PER_TAG_GROUP + 1;
+			overall_offset = SETS_PER_TAG_GROUP + 1;
 		}
 		else
 		{
 			temp_set = temp_set + SETS_PER_TAG_GROUP;
+			overall_offset = SETS_PER_TAG_GROUP;
 		}
 	
-		uint64_t overall_offset = 0;
+		
 		for(uint64_t prefetch_index = 0; prefetch_index < index_max; prefetch_index++)
 		{		
 			// get the address for the current set
@@ -1230,7 +1233,12 @@ namespace HybridSim {
 			// skip the reading the tags that triggered this prefetch
 			// make sure we're not already reading these tags
 			// we make sure we don't already have these tags in the tag buffer now
-			if(cache_pending.count(curr_tag_addr) == 0 && temp_set != set_index_align && tbuff.offsetEnabled(num_tags, overall_offset))
+			bool prefetch_tags = true;
+			if (ENABLE_BLOOM)
+			{
+				prefetch_tags = tbuff.offsetEnabled(num_tags, overall_offset);
+			}
+			if(cache_pending.count(curr_tag_addr) == 0 && temp_set != set_index_align && prefetch_tags)
 			{
 				if(DEBUG_TAG_PREFETCH)
 				{
@@ -1274,12 +1282,12 @@ namespace HybridSim {
 			if(temp_index_mod < ((SETS_PER_TAG_GROUP + 1) * EXTRA_SETS_FOR_ZERO_GROUP))
 			{
 				temp_set = temp_set + SETS_PER_TAG_GROUP + 1;
-				overall_offset = overall_offset + SETS_PER_TAG_GROUP;
+				overall_offset = overall_offset + SETS_PER_TAG_GROUP + 1;
 			}
 			else
 			{
 				temp_set = temp_set + SETS_PER_TAG_GROUP;
-				overall_offset = overall_offset + SETS_PER_TAG_GROUP + 1;
+				overall_offset = overall_offset + SETS_PER_TAG_GROUP;
 			}
 		}
 	}
@@ -2849,10 +2857,6 @@ namespace HybridSim {
 			// Restart queue checking.
 			this->check_queue = true;
 			pending_count -= 1;
-		}
-		else
-		{
-			cout << "something bad happened with the contention unlock \n";
 		}
 	}
 

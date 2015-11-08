@@ -53,8 +53,6 @@ namespace HybridSim {
 			// this should automatically set the offset vector to be the size of whatever amount we're prefetching
 			offset_enable = vector<bool>((SETS_PER_TAG_GROUP+1) + (0.5*TAG_PREFETCH_WINDOW*SETS_PER_TAG_GROUP) + (0.5*TAG_PREFETCH_WINDOW*(SETS_PER_TAG_GROUP+1)), false);
 
-			bloom_parameters parameters;
-
 			// How many elements roughly do we expect to insert?
 			parameters.projected_element_count = EVAL_MAX;
 
@@ -73,7 +71,7 @@ namespace HybridSim {
 			parameters.compute_optimal_parameters();
 
 			//Instantiate Bloom Filter
-			bloom_filter offset_bloom(parameters);
+			offset_bloom = bloom_filter(parameters);
 		}
 	}
 
@@ -178,7 +176,13 @@ namespace HybridSim {
 			}
 			
 			// are we even worried about adding this tag?
-			if(offset_enable[offset])
+			// are we even worried about adding this tag?
+			bool add_tag = true;
+			if(ENABLE_BLOOM)
+			{
+				add_tag = offset_enable[offset];
+			}
+			if(add_tag)
 			{
 				
 				// if we have an entry for this tag set
@@ -714,6 +718,7 @@ namespace HybridSim {
 				offset_enable[under_review] = false;
 			}
 			offset_bloom.clear();
+			offset_bloom = bloom_filter(parameters);
 			offset_rating = 0;
 			under_review++;
 			if(under_review >= (SETS_PER_TAG_GROUP+1) + (0.5*TAG_PREFETCH_WINDOW*SETS_PER_TAG_GROUP) + (0.5*TAG_PREFETCH_WINDOW*(SETS_PER_TAG_GROUP+1)))

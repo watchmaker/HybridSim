@@ -83,6 +83,7 @@ namespace HybridSim
 
 		// bloom filter to track recent set accesses
 		bloom_filter offset_bloom;
+		bloom_parameters parameters;
 		uint64_t offset_rating;
 		uint64_t period_count;
 		uint64_t under_review;
