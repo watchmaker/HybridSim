@@ -37,6 +37,8 @@
 #include "config.h"
 #include "util.h"
 
+#include "bloom_filter.hpp"
+
 using std::string;
 
 namespace HybridSim
@@ -58,9 +60,15 @@ namespace HybridSim
 		// just to keep the cycle count valid
 		void update();
 
-		void addTags(vector<uint64_t> tags, bool prefetched, uint64_t demand_set);
+		void addTags(vector<uint64_t> tags, bool prefetched, uint64_t demand_set, uint64_t tag_set_offset);
 
 		uint64_t haveTags(uint64_t set_index);
+
+		// updates the bloom filter on each set access
+		void updateBloom(uint64_t set_index);
+
+		// provides access to the bloom filter so we don't issue tag accesses we don't need
+		bool offsetEnabled(uint64_t num_tags, uint64_t offset_start);
 
 		void printBufferUsage();
 		void printStrides();
@@ -72,6 +80,13 @@ namespace HybridSim
 		ofstream debug_tag_buffer;
 		vector<uint64_t> sets_accessed;
 		vector<uint64_t> sets_hit;
+
+		// bloom filter to track recent set accesses
+		bloom_filter offset_bloom;
+		uint64_t offset_rating;
+		uint64_t period_count;
+		uint64_t under_review;
+		vector<bool> offset_enable;
 		
 		class EvictedTagEntry
 		{
