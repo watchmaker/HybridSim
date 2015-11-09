@@ -45,6 +45,8 @@ uint64_t ENABLE_SET_ACCESSES_LOG = 0;
 uint64_t ENABLE_PAGES_USED_LOG = 0;
 uint64_t ENABLE_CONTENTION_LOG = 0;
 uint64_t ENABLE_MISSED_PAGE_LOG = 0;
+uint64_t ENABLE_STRIDE_LOG = 0;
+uint64_t ENABLE_TAG_BUFFER_USAGE_LOG = 0;
 uint64_t EPOCH_LENGTH = 200000;
 uint64_t HISTOGRAM_BIN = 100;
 uint64_t HISTOGRAM_MAX = 20000;
@@ -90,6 +92,12 @@ uint64_t RANKS_PER_CHANNEL = 1;
 uint64_t BANKS_PER_RANK = 1;
 uint64_t ROWS_PER_BANK = 1;
 uint64_t COL_PER_ROW = 1;
+
+// PaulMod: Bloom Filter Prefetching Values
+uint64_t ENABLE_BLOOM;
+uint64_t EVAL_MAX;
+uint64_t RATE_THRESH;
+uint64_t MAX_OFFSET;
 
 // PaulMod: Replacement Policy
 string REPLACEMENT_POLICY;
@@ -180,6 +188,10 @@ string NVDIMM_SAVE_FILE = "none";
 				convert_uint64_t(ENABLE_CONTENTION_LOG, value, key);
 			else if (key.compare("ENABLE_MISSED_PAGE_LOG") == 0)
 				convert_uint64_t(ENABLE_MISSED_PAGE_LOG, value, key);
+			else if (key.compare("ENABLE_STRIDE_LOG") == 0)
+				convert_uint64_t(ENABLE_STRIDE_LOG, value, key);
+			else if (key.compare("ENABLE_TAG_BUFFER_USAGE_LOG") == 0)
+				convert_uint64_t(ENABLE_TAG_BUFFER_USAGE_LOG, value, key);
 			else if (key.compare("EPOCH_LENGTH") == 0)
 				convert_uint64_t(EPOCH_LENGTH, value, key);
 			else if (key.compare("HISTOGRAM_BIN") == 0)
@@ -339,6 +351,12 @@ string NVDIMM_SAVE_FILE = "none";
 			}
 			else if (key.compare("REPLACEMENT_PERIOD") == 0)
 				convert_uint64_t(REPLACEMENT_PERIOD, value, key);
+			else if (key.compare("ENABLE_BLOOM") == 0)
+				convert_uint64_t(ENABLE_BLOOM, value, key);
+			else if (key.compare("EVAL_MAX") == 0)
+				convert_uint64_t(EVAL_MAX, value, key);
+			else if (key.compare("RATE_THRESH") == 0)
+				convert_uint64_t(RATE_THRESH, value, key);
 			else if (key.compare("CYCLES_PER_SECOND") == 0)
 				convert_uint64_t(CYCLES_PER_SECOND, value, key);
 			else if (key.compare("cache_dram_ini") == 0)

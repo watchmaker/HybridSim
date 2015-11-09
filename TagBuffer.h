@@ -37,6 +37,8 @@
 #include "config.h"
 #include "util.h"
 
+#include "bloom_filter.hpp"
+
 using std::string;
 
 namespace HybridSim
@@ -52,14 +54,24 @@ namespace HybridSim
 		// just to set up the vector that we use to track the sets that are used		
 		void initializeSetTracking();
 
+		// like the set tracking function, this just sets up the vector we use to track access strides
+		void initializeStrideTracking();
+
 		// just to keep the cycle count valid
 		void update();
 
-		void addTags(vector<uint64_t> tags, bool prefetched);
+		void addTags(vector<uint64_t> tags, bool prefetched, uint64_t demand_set, uint64_t tag_set_offset);
 
 		uint64_t haveTags(uint64_t set_index);
 
+		// updates the bloom filter on each set access
+		void updateBloom(uint64_t set_index);
+
+		// provides access to the bloom filter so we don't issue tag accesses we don't need
+		bool offsetEnabled(uint64_t num_tags, uint64_t offset_start);
+
 		void printBufferUsage();
+		void printStrides();
 		
 		// making this a vector of sets
 		// a tag line represents the storage of an entire DRAM buffer set's tags
@@ -68,7 +80,50 @@ namespace HybridSim
 		ofstream debug_tag_buffer;
 		vector<uint64_t> sets_accessed;
 		vector<uint64_t> sets_hit;
+
+		// bloom filter to track recent set accesses
+		bloom_filter offset_bloom;
+		bloom_parameters parameters;
+		uint64_t offset_rating;
+		uint64_t period_count;
+		uint64_t under_review;
+		vector<bool> offset_enable;
 		
+		class EvictedTagEntry
+		{
+			public:
+				uint64_t set_index;
+				uint64_t cycle_evicted;
+
+				EvictedTagEntry()
+				{
+					set_index = NUM_SETS+1;
+					cycle_evicted = 0;
+				}	
+				EvictedTagEntry(uint64_t si, uint64_t ce)
+				{
+					set_index = si;
+					cycle_evicted = ce;
+				}
+		};
+
+		list<EvictedTagEntry> victim_tag_list;
+		unordered_map<uint64_t, uint64_t> victim_tag_requested;  // victim address - time from eviction
+		unordered_map<uint64_t, uint64_t> victim_tag_histogram;
+		
+		// trying to capture the distribution of access distances	
+		ofstream record_strides;
+		vector<uint64_t> last_sets_accessed;
+		vector<vector<uint64_t> > access_stride_histogram;
+
+		// trying to capture set reuse
+		//unordered_map<uint64_t, uint64_t> last_access;
+		//unordered_map<uint64_t, uint64_t> reuse_histogram; // reuse distance
+		//uint64_t reuse_average;	
+		//uint64_t num_sets_accessed;
+
+		uint64_t num_tags_buffered;
+		uint64_t num_tags_used;
 	};
 }
 

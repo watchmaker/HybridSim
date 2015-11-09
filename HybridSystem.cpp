@@ -110,10 +110,15 @@ namespace HybridSim {
 		back->registerCallbacks(back_read_cb, back_write_cb, NULL);
 
 		decoder = AddressDecode();
-		if(DEBUG_COMBO_TAG || DEBUG_TAG_BUFFER)
+		if(DEBUG_COMBO_TAG || DEBUG_TAG_BUFFER || ENABLE_TAG_BUFFER_USAGE_LOG)
 		{
 			tbuff.initializeSetTracking();
 		}
+		if(ENABLE_STRIDE_LOG)
+		{
+			tbuff.initializeStrideTracking();
+		}
+		tbuff.initializeTagBuffer();
 
 		// Need to check the queue when we start.
 		check_queue = true;
@@ -427,6 +432,7 @@ namespace HybridSim {
 				isWrite = true;
 			else
 				isWrite = false;
+
 			DRAMSim::DRAMSimTransaction *dsim_back_trans = back->makeTransaction(isWrite, tmp.address);
 
 			if(dsim_back_trans != NULL)
@@ -914,13 +920,13 @@ namespace HybridSim {
 			{
 				VictimRead(p);
 			}
+		}
 
-			// try to read the other tags in parallel with the replacement, these tag lookups should be put
-			// in the cache queue after the line read so they shouldn't slow the replacement down
-			if(assocVersion == combo_tag && tag_miss && ENABLE_TAG_PREFETCH)
-			{
-				IssueTagPrefetch(set_index, *(set_address_list.begin()));
-			}
+		// try to read the other tags in parallel with the replacement, these tag lookups should be put
+		// in the cache queue after the line read so they shouldn't slow the replacement down
+		if(assocVersion == combo_tag && tag_miss && ENABLE_TAG_PREFETCH)
+		{
+			IssueTagPrefetch(set_index, *(set_address_list.begin()));
 		}
 	}
 
@@ -944,7 +950,6 @@ namespace HybridSim {
 		}
 			
 		uint64_t set_index_pos = 0;
-
 		if(set_index_mod < ((SETS_PER_TAG_GROUP + 1) * EXTRA_SETS_FOR_ZERO_GROUP))
 		{
 			set_index_pos = (set_index_mod) / (SETS_PER_TAG_GROUP + 1);
@@ -1048,10 +1053,13 @@ namespace HybridSim {
 				// so we just go directly to the check tags phase
 				if(ENABLE_LOGGER)
 				{
-					if(had_tags == 2)
+					if(had_tags == 3)
 						log.tag_buffer_prefetch_hit();
+					else if(had_tags == 2)
+						log.tag_buffer_free_hit();
 					else
-						log.tag_buffer_hit();
+						log.tag_buffer_demand_hit();
+						
 				}
 				HitCheck(trans, false);
 			}
@@ -1108,7 +1116,7 @@ namespace HybridSim {
 	// ***************************************************************************
 	// COMBO TAG PREFETCH STUFF
 	// ***************************************************************************
-	void HybridSystem::IssueTagPrefetch(uint64_t set_index, uint64_t data_address)
+		void HybridSystem::IssueTagPrefetch(uint64_t set_index, uint64_t data_address)
 	{
 		if(DEBUG_TAG_PREFETCH)
 		{
@@ -1176,21 +1184,24 @@ namespace HybridSim {
 		}
 		else
 		{
-			
-			index_max = set_index_pos+TAG_PREFETCH_WINDOW+1;
+			index_max = TAG_PREFETCH_WINDOW;
 		}
 
 		// only prefetch going forward
+		uint64_t overall_offset = 0;
 		if(set_index_mod < ((SETS_PER_TAG_GROUP + 1) * EXTRA_SETS_FOR_ZERO_GROUP))
 		{
 			temp_set = temp_set + SETS_PER_TAG_GROUP + 1;
+			overall_offset = SETS_PER_TAG_GROUP + 1;
 		}
 		else
 		{
 			temp_set = temp_set + SETS_PER_TAG_GROUP;
+			overall_offset = SETS_PER_TAG_GROUP;
 		}
 	
-		for(uint64_t prefetch_index = set_index_pos; prefetch_index < index_max; prefetch_index++)
+		
+		for(uint64_t prefetch_index = 0; prefetch_index < index_max; prefetch_index++)
 		{		
 			// get the address for the current set
 			uint64_t curr_data_addr =  getComboDataAddr(temp_set, 0);
@@ -1211,10 +1222,34 @@ namespace HybridSim {
 				break;
 			}
 
+			uint64_t num_tags = 0;
+			uint64_t set_index_mod = 0;
+			if(ENABLE_SET_CHANNEL_INTERLEAVE)
+			{
+				set_index_mod = (temp_set / NUM_CHANNELS) % SETS_PER_LINE;
+			}
+			else
+			{
+				set_index_mod = (temp_set) % SETS_PER_LINE;
+			}
+			if(set_index_mod < ((SETS_PER_TAG_GROUP + 1) * EXTRA_SETS_FOR_ZERO_GROUP))
+			{
+				num_tags = SETS_PER_TAG_GROUP + 1;				
+			}
+			else
+			{
+				num_tags = SETS_PER_TAG_GROUP;					
+			}
+
 			// skip the reading the tags that triggered this prefetch
 			// make sure we're not already reading these tags
-			// make sure we don't already have these tags
-			if(cache_pending.count(curr_tag_addr) == 0 && temp_set != set_index_align && tbuff.haveTags(temp_set) == 0)
+			// we make sure we don't already have these tags in the tag buffer now
+			bool prefetch_tags = true;
+			if (ENABLE_BLOOM)
+			{
+				prefetch_tags = tbuff.offsetEnabled(num_tags, overall_offset);
+			}
+			if(cache_pending.count(curr_tag_addr) == 0 && temp_set != set_index_align && prefetch_tags)
 			{
 				if(DEBUG_TAG_PREFETCH)
 				{
@@ -1239,7 +1274,8 @@ namespace HybridSim {
 				p.op = TAG_PREFETCH;
 				p.cache_addr = curr_tag_addr;
 				p.orig_addr = 0;
-				p.back_addr = temp_set; // use this to pass on the set index		
+				p.back_addr = temp_set; // use this to pass on the set index	
+				p.offset = overall_offset;
 				p.victim_tag = 0;
 				p.victim_valid = false;
 				p.callback_sent = false;
@@ -1257,10 +1293,12 @@ namespace HybridSim {
 			if(temp_index_mod < ((SETS_PER_TAG_GROUP + 1) * EXTRA_SETS_FOR_ZERO_GROUP))
 			{
 				temp_set = temp_set + SETS_PER_TAG_GROUP + 1;
+				overall_offset = overall_offset + SETS_PER_TAG_GROUP + 1;
 			}
 			else
 			{
 				temp_set = temp_set + SETS_PER_TAG_GROUP;
+				overall_offset = overall_offset + SETS_PER_TAG_GROUP;
 			}
 		}
 	}
@@ -1700,11 +1738,11 @@ namespace HybridSim {
 					set_group_pos = (set_index_mod) % (SETS_PER_TAG_GROUP + 1);
 					set_index_start = set_index - set_group_pos;
 					
-					for(uint64_t i=0; i<(SETS_PER_TAG_GROUP + EXTRA_SETS_FOR_ZERO_GROUP); i++)
+					for(uint64_t i=0; i<(SETS_PER_TAG_GROUP + 1); i++)
 					{
 						tags[i] = set_index_start+(i*NUM_CHANNELS);
 					}
-					tbuff.addTags(tags, false);					
+					tbuff.addTags(tags, false, set_index, 0); 				
 				}
 				else
 				{
@@ -1715,7 +1753,7 @@ namespace HybridSim {
 					{
 						tags[i] = set_index_start+(i*NUM_CHANNELS);
 					}
-					tbuff.addTags(tags, false);						
+					tbuff.addTags(tags, false, set_index, 0);						
 				}
 			}
 			else
@@ -1725,14 +1763,14 @@ namespace HybridSim {
 				uint64_t set_index_start = 0;
 				if(set_index_mod < ((SETS_PER_TAG_GROUP + 1) * EXTRA_SETS_FOR_ZERO_GROUP))
 				{
-					vector<uint64_t> tags = vector<uint64_t> (SETS_PER_TAG_GROUP + EXTRA_SETS_FOR_ZERO_GROUP, 0);
+					vector<uint64_t> tags = vector<uint64_t> (SETS_PER_TAG_GROUP + 1, 0);
 					set_group_pos = (set_index_mod) % (SETS_PER_TAG_GROUP + 1);
 					set_index_start = set_index - set_group_pos;
-					for(uint64_t i=0; i<(SETS_PER_TAG_GROUP + EXTRA_SETS_FOR_ZERO_GROUP); i++)
+					for(uint64_t i=0; i<(SETS_PER_TAG_GROUP + 1); i++)
 					{
 						tags[i] = set_index_start+i;
 					}
-					tbuff.addTags(tags, false);					
+					tbuff.addTags(tags, false, set_index, 0);					
 				}
 				else
 				{
@@ -1743,7 +1781,7 @@ namespace HybridSim {
 					{
 						tags[i] = set_index_start+i;
 					}
-					tbuff.addTags(tags, false);						
+					tbuff.addTags(tags, false, set_index, 0);						
 				}
 			}
 			
@@ -1763,14 +1801,14 @@ namespace HybridSim {
 				uint64_t set_index_start = 0;
 				if(set_index_mod < ((SETS_PER_TAG_GROUP + 1) * EXTRA_SETS_FOR_ZERO_GROUP))
 				{
-					vector<uint64_t> tags = vector<uint64_t> (SETS_PER_TAG_GROUP + EXTRA_SETS_FOR_ZERO_GROUP, 0);
+					vector<uint64_t> tags = vector<uint64_t> (SETS_PER_TAG_GROUP + 1, 0);
 					set_group_pos = (set_index_mod) % (SETS_PER_TAG_GROUP + 1);
 					set_index_start = set_index - set_group_pos;
-					for(uint64_t i=0; i<(SETS_PER_TAG_GROUP + EXTRA_SETS_FOR_ZERO_GROUP); i++)
+					for(uint64_t i=0; i<(SETS_PER_TAG_GROUP + 1); i++)
 					{
 						tags[i] = set_index_start+(i*NUM_CHANNELS);
 					}
-					tbuff.addTags(tags, true);					
+					tbuff.addTags(tags, true, set_index, p.offset);					
 				}
 				else
 				{
@@ -1781,7 +1819,7 @@ namespace HybridSim {
 					{
 						tags[i] = set_index_start+(i*NUM_CHANNELS);
 					}
-					tbuff.addTags(tags, true);						
+					tbuff.addTags(tags, true, set_index, p.offset);						
 				}
 			}
 			else
@@ -1791,14 +1829,14 @@ namespace HybridSim {
 				uint64_t set_index_start = 0;
 				if(set_index_mod < ((SETS_PER_TAG_GROUP + 1) * EXTRA_SETS_FOR_ZERO_GROUP))
 				{
-					vector<uint64_t> tags = vector<uint64_t> (SETS_PER_TAG_GROUP + EXTRA_SETS_FOR_ZERO_GROUP, 0);
+					vector<uint64_t> tags = vector<uint64_t> (SETS_PER_TAG_GROUP + 1, 0);
 					set_group_pos = (set_index_mod) % (SETS_PER_TAG_GROUP + 1);
 					set_index_start = set_index - set_group_pos;
-					for(uint64_t i=0; i<(SETS_PER_TAG_GROUP + EXTRA_SETS_FOR_ZERO_GROUP); i++)
+					for(uint64_t i=0; i<(SETS_PER_TAG_GROUP + 1); i++)
 					{
 						tags[i] = set_index_start+i;
 					}
-					tbuff.addTags(tags, true);					
+					tbuff.addTags(tags, true, set_index, p.offset);					
 				}
 				else
 				{
@@ -1809,7 +1847,7 @@ namespace HybridSim {
 					{
 						tags[i] = set_index_start+i;
 					}
-					tbuff.addTags(tags, true);						
+					tbuff.addTags(tags, true, set_index, p.offset);						
 				}
 			}
 
@@ -2544,9 +2582,14 @@ namespace HybridSim {
 			llcache->printStats(true);
 			back->printStats(true);
 
-			if(DEBUG_COMBO_TAG)
+			if(DEBUG_COMBO_TAG || ENABLE_TAG_BUFFER_USAGE_LOG)
 			{
 				tbuff.printBufferUsage();
+			}
+
+			if(ENABLE_STRIDE_LOG)
+			{
+				tbuff.printStrides();
 			}
 		}
 	}
@@ -2772,10 +2815,6 @@ namespace HybridSim {
 			// Restart queue checking.
 			this->check_queue = true;
 			pending_count -= 1;
-		}
-		else
-		{
-			//cout << "something bad happened with the contention unlock \n";
 		}
 	}
 
