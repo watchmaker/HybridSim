@@ -43,6 +43,36 @@ namespace HybridSim {
 	{
 		//initializing the parallel set structures for the tag cache
 		//tag_buffer = unordered_map<uint64_t, list<tag_line> >(NUM_TAG_SETS, list<tag_line>());
+
+		// setting up the bloom filter, if we need it
+		if(ENABLE_BLOOM)
+		{
+			period_count = 0;
+			offset_rating = 0;
+			under_review = 0;
+			// this should automatically set the offset vector to be the size of whatever amount we're prefetching
+			offset_enable = vector<bool>((SETS_PER_TAG_GROUP+1) + (0.5*TAG_PREFETCH_WINDOW*SETS_PER_TAG_GROUP) + (0.5*TAG_PREFETCH_WINDOW*(SETS_PER_TAG_GROUP+1)), false);
+
+			// How many elements roughly do we expect to insert?
+			parameters.projected_element_count = EVAL_MAX;
+
+			// Maximum tolerable false positive probability? (0,1)
+			parameters.false_positive_probability = 0.01; // 1 in 10000
+
+			// Simple randomizer (optional)
+			parameters.random_seed = 0xA5A5A5A5;
+
+			if (!parameters)
+			{
+				std::cout << "Error - Invalid set of bloom filter parameters!" << std::endl;
+				abort();
+			}
+
+			parameters.compute_optimal_parameters();
+
+			//Instantiate Bloom Filter
+			offset_bloom = bloom_filter(parameters);
+		}
 	}
 
 	void TagBuffer::initializeSetTracking()
