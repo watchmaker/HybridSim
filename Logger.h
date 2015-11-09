@@ -64,6 +64,8 @@ namespace HybridSim
 
 		uint64_t num_tag_accesses;
 		uint64_t num_tag_hits;
+		uint64_t num_tag_demand_hits;
+		uint64_t num_tag_free_hits;
 		uint64_t num_tag_prefetches;
 		uint64_t num_tag_prefetch_hits;
 		
@@ -110,6 +112,8 @@ namespace HybridSim
 
 		uint64_t cur_num_tag_accesses;
 		uint64_t cur_num_tag_hits;
+		uint64_t cur_num_tag_demand_hits;
+		uint64_t cur_num_tag_free_hits;
 		uint64_t cur_num_tag_prefetches;
 		uint64_t cur_num_tag_prefetch_hits;
 		
@@ -257,6 +261,8 @@ namespace HybridSim
 		
 		void tag_buffer_access();
 		void tag_buffer_hit();
+		void tag_buffer_demand_hit();
+		void tag_buffer_free_hit();
 		void tag_buffer_prefetch();
 		void tag_buffer_prefetch_hit();
 
