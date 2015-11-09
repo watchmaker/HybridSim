@@ -907,14 +907,13 @@ namespace HybridSim {
 			if (cur_line.dirty)
 			{
 				VictimRead(p);
-			}
-
-			// try to read the other tags in parallel with the replacement, these tag lookups should be put
-			// in the cache queue after the line read so they shouldn't slow the replacement down
-			if(assocVersion == combo_tag && tag_miss && ENABLE_TAG_PREFETCH)
-			{
-				IssueTagPrefetch(set_index, *(set_address_list.begin()));
-			}
+			}			
+		}
+		// try to read the other tags in parallel with the replacement, these tag lookups should be put
+		// in the cache queue after the line read so they shouldn't slow the replacement down
+		if(assocVersion == combo_tag && tag_miss && ENABLE_TAG_PREFETCH)
+		{
+			IssueTagPrefetch(set_index, *(set_address_list.begin()));
 		}
 	}
 
