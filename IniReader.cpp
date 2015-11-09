@@ -93,6 +93,12 @@ uint64_t BANKS_PER_RANK = 1;
 uint64_t ROWS_PER_BANK = 1;
 uint64_t COL_PER_ROW = 1;
 
+// PaulMod: Bloom Filter Prefetching Values
+uint64_t ENABLE_BLOOM;
+uint64_t EVAL_MAX;
+uint64_t RATE_THRESH;
+uint64_t MAX_OFFSET;
+
 // PaulMod: Replacement Policy
 string REPLACEMENT_POLICY;
 ReplacementPolicy replacementPolicy;
@@ -344,6 +350,12 @@ string NVDIMM_SAVE_FILE = "none";
 			}
 			else if (key.compare("REPLACEMENT_PERIOD") == 0)
 				convert_uint64_t(REPLACEMENT_PERIOD, value, key);
+			else if (key.compare("ENABLE_BLOOM") == 0)
+				convert_uint64_t(ENABLE_BLOOM, value, key);
+			else if (key.compare("EVAL_MAX") == 0)
+				convert_uint64_t(EVAL_MAX, value, key);
+			else if (key.compare("RATE_THRESH") == 0)
+				convert_uint64_t(RATE_THRESH, value, key);
 			else if (key.compare("CYCLES_PER_SECOND") == 0)
 				convert_uint64_t(CYCLES_PER_SECOND, value, key);
 			else if (key.compare("nvdimm_back_ini") == 0)

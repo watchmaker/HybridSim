@@ -243,6 +243,11 @@ extern uint64_t COL_PER_ROW;
 
 #define VICTIM_LIST_LENGTH 64
 
+// prefetching tracking constants
+extern uint64_t ENABLE_BLOOM;
+extern uint64_t EVAL_MAX;
+extern uint64_t RATE_THRESH;
+
 enum TagReplacement
 {
 	tag_lru,
@@ -376,12 +381,13 @@ class Pending
 	uint64_t back_addr;
 	uint64_t cache_addr;
 	uint64_t victim_tag;
+	uint64_t offset;
 	bool victim_valid;
 	bool callback_sent;
 	bool tag_buffer_miss; // this is used to tell use when to prefetch tags
 	TransactionType type; // DATA_READ or DATA_WRITE
 
-	Pending() : op(VICTIM_READ), back_addr(0), cache_addr(0), victim_tag(0), type(DATA_READ) {};
+	Pending() : op(VICTIM_READ), back_addr(0), cache_addr(0), victim_tag(0), offset(0), type(DATA_READ) {};
         string str() { stringstream out; out << "O=" << op << " F=" << back_addr << " C=" << cache_addr << " V=" << victim_tag 
 		<< " T=" << type; return out.str(); }
 };
