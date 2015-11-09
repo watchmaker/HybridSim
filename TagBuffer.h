@@ -60,7 +60,7 @@ namespace HybridSim
 		// just to keep the cycle count valid
 		void update();
 
-		void addTags(vector<uint64_t> tags, bool prefetched, uint64_t demand_set);
+		void addTags(vector<uint64_t> tags, bool prefetched, uint64_t demand_set, uint64_t tag_set_offset);
 
 		uint64_t haveTags(uint64_t set_index);
 	
@@ -113,8 +113,9 @@ namespace HybridSim
 		
 		// trying to capture the distribution of access distances	
 		ofstream record_strides;
-		uint64_t last_set_accessed;
-		vector<uint64_t> access_stride_histogram;
+		vector<uint64_t> last_sets_accessed;
+		vector<vector<uint64_t> > access_stride_histogram;
+
 		// trying to capture set reuse
 		//unordered_map<uint64_t, uint64_t> last_access;
 		//unordered_map<uint64_t, uint64_t> reuse_histogram; // reuse distance

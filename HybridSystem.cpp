@@ -1105,7 +1105,7 @@ namespace HybridSim {
 	// ***************************************************************************
 	// COMBO TAG PREFETCH STUFF
 	// ***************************************************************************
-	void HybridSystem::IssueTagPrefetch(uint64_t set_index, uint64_t data_address)
+		void HybridSystem::IssueTagPrefetch(uint64_t set_index, uint64_t data_address)
 	{
 		if(DEBUG_TAG_PREFETCH)
 		{
@@ -1173,8 +1173,7 @@ namespace HybridSim {
 		}
 		else
 		{
-			
-			index_max = TAG_PREFETCH_WINDOW+1;
+			index_max = TAG_PREFETCH_WINDOW;
 		}
 
 		// only prefetch going forward
@@ -1190,7 +1189,8 @@ namespace HybridSim {
 			overall_offset = SETS_PER_TAG_GROUP;
 		}
 	
-		for(uint64_t prefetch_index = set_index_pos; prefetch_index < index_max; prefetch_index++)
+		
+		for(uint64_t prefetch_index = 0; prefetch_index < index_max; prefetch_index++)
 		{		
 			// get the address for the current set
 			uint64_t curr_data_addr =  getComboDataAddr(temp_set, 0);
@@ -1539,7 +1539,7 @@ namespace HybridSim {
 			cur_line.prefetched = true;
 			total_prefetches++;
 			unused_prefetches++;
-			
+
 			// use this option to set the replacement priority for prefetches to be very low
 			if(LOW_PRIORITY_PREFETCH)
 			{
@@ -1731,7 +1731,7 @@ namespace HybridSim {
 					{
 						tags[i] = set_index_start+(i*NUM_CHANNELS);
 					}
-					tbuff.addTags(tags, false, set_index, 0);					
+					tbuff.addTags(tags, false, set_index, 0);
 				}
 				else
 				{
