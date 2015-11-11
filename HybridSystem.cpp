@@ -793,11 +793,11 @@ namespace HybridSim {
 				{
 					CacheRead(trans.address, addr, cache_address, trans, false);
 
-					if(ENABLE_TAG_PREFETCH && tag_miss)
-					{
+					//if(ENABLE_TAG_PREFETCH && tag_miss)
+					//{
 						// issue the prefetches here, these should go on the queue after the actual data read
-						IssueTagPrefetch(set_index, *(set_address_list.begin()));
-					}
+					//	IssueTagPrefetch(set_index, *(set_address_list.begin()));
+					//}
 				}
 				// if we're not doing a separate tag cache then we don't need to issue any reads here
 				// we already issued a read to get the data from the cache
@@ -1249,7 +1249,7 @@ namespace HybridSim {
 			{
 				prefetch_tags = tbuff.offsetEnabled(num_tags, overall_offset);
 			}
-			if(cache_pending.count(curr_tag_addr) == 0 && temp_set != set_index_align && prefetch_tags)
+			if(cache_pending.count(curr_tag_addr) == 0 && temp_set != set_index_align && prefetch_tags && curr_data_addr < (CACHE_PAGES * PAGE_SIZE))
 			{
 				if(DEBUG_TAG_PREFETCH)
 				{
