@@ -49,6 +49,10 @@ uint64_t speedup_factor = 0;
 uint64_t START_TRANS = 0;
 uint64_t MAX_TRANS = 0;
 
+// the cycle counts, used to skip portions of the trace and stop
+uint64_t START_CYCLE = 0;
+uint64_t MAX_CYCLE = 0;
+
 // The cycle counter is used to keep track of what cycle we are on.
 uint64_t trace_cycles = 0;
 
@@ -62,6 +66,8 @@ void print_usage()
 	cout << " -t --trace_file <filename>       Trace file to use \n";
 	cout << " -s --start_trans <trans number>  Transaction to start on \n";
 	cout << " -e --end_trans <trans number>    Transaction to end on \n";
+	cout << " -b --start_cycle <cycle number>  Cycle to start on \n";
+	cout << " -c --stop_cycle <cycle number>   Cycle to end on \n";
 	cout << " -u --speedup <speedup factor>    The amount to speedup the trace \n";
 	cout << " -h --help                        Display the usage information \n";
 }
@@ -81,12 +87,14 @@ int main(int argc, char *argv[])
 		{ "trace_file", required_argument, NULL, 't'},
 		{ "start_trans", required_argument, NULL, 's'},
 		{ "end_trans", required_argument, NULL, 'e'},
+		{ "start_cycle", required_argument, NULL, 'b'},
+		{ "end_cycle", required_argument, NULL, 'c'},
 		{ "speedup", required_argument, NULL, 'u'},
 		{ "help", no_argument, NULL, 'h' },
 		{ NULL, no_argument, NULL, 0 }		
 	};
 
-	while((c = getopt_long(argc, argv, "t:s:e:u:h", long_options, NULL)) != -1)
+	while((c = getopt_long(argc, argv, "t:s:e:b:c:u:h", long_options, NULL)) != -1)
 	{
 		switch(c)
 		{
@@ -103,6 +111,16 @@ int main(int argc, char *argv[])
 		case 'e':
 			ss << optarg;
 			ss >> MAX_TRANS;
+			ss.clear(); // safety
+			break;
+		case 'b':
+			ss << optarg;
+			ss >> START_CYCLE;
+			ss.clear(); // safety
+			break;       
+		case 'c':
+			ss << optarg;
+			ss >> MAX_CYCLE;
 			ss.clear(); // safety
 			break;
 	        case 'u':
@@ -188,16 +206,46 @@ int HybridSimTBS::run_trace(string tracefile)
 	string line;
 	bool done = false;
 	uint64_t trans_count = 0;
-
 	
 	// if we're fast forwarding some
-	if(START_TRANS != 0)
+	if(START_TRANS != 0 || START_CYCLE !=0)
 	{
 		while(inFile.good() && !done)
 		{
 			inFile.getline(char_line, 256);
+			line = (string)char_line; 
+
+			// Filter comments out.
+			size_t pos = line.find("#");
+			line = line.substr(0, pos);
+
+			// Strip whitespace from the ends.
+			line = strip(line);
+
+			// Filter newlines out.
+			if (line.empty())
+				continue;
+
+			// Split and parse.
+			list<string> split_line = split(line);
+
+			uint64_t line_vals[3];
+
+			int i = 0;
+			for (list<string>::iterator it = split_line.begin(); it != split_line.end(); it++, i++)
+			{
+				// convert string to integer
+				uint64_t tmp;
+				convert_uint64_t(tmp, (*it));
+				line_vals[i] = tmp;
+			}
+
 			trans_count++;
-			if(trans_count >= START_TRANS)
+			if(trans_count >= START_TRANS && START_TRANS != 0)
+			{
+				done = true;
+			}
+			else if(line_vals[0] >= START_CYCLE && START_CYCLE !=0)
 			{
 				done = true;
 			}
@@ -302,6 +350,8 @@ int HybridSimTBS::run_trace(string tracefile)
 
 		// check to see if we're done with the trace for now
 		if(MAX_TRANS != 0 && trans_count >= MAX_TRANS)
+			done = true;
+		else if(MAX_CYCLE != 0 && trace_cycles >= MAX_CYCLE)
 			done = true;
 	}
 
