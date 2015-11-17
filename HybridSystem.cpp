@@ -2678,10 +2678,10 @@ namespace HybridSim {
 					line.dirty = 0;
 				}
 
-				if (line.ts > last_timestamp)
-				{
-					last_timestamp = line.ts;
-				}
+				//if (line.ts > last_timestamp)
+				//{
+				//	last_timestamp = line.ts;
+				//}
 
 				// The line must not be locked on restore.
 				// This is a point of weirdness with the replay warmup design (since we can't restore the system
@@ -2697,7 +2697,7 @@ namespace HybridSim {
 
 			// set our current clock cycle to be whatever the last time stamp we had was
 			// this will keep warmed up data from having priority for too long
-			set_cycle(last_timestamp);
+			//set_cycle(last_timestamp);
 
 			//llcache->loadNVState(NVDIMM_RESTORE_FILE);
 		}
