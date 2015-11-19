@@ -711,11 +711,11 @@ namespace HybridSim {
 			period_count = 0;
 			if( offset_rating > RATE_THRESH)
 			{
-				offset_enable[under_review] = true;
+				offset_enable[under_review+SETS_PER_TAG_GROUP] = true;
 			}
 			else
 			{
-				offset_enable[under_review] = false;
+				offset_enable[under_review+SETS_PER_TAG_GROUP] = false;
 			}
 			offset_bloom.clear();
 			offset_bloom = bloom_filter(parameters);
@@ -723,7 +723,7 @@ namespace HybridSim {
 			under_review++;
 			if(under_review >= (SETS_PER_TAG_GROUP+1) + (0.5*TAG_PREFETCH_WINDOW*SETS_PER_TAG_GROUP) + (0.5*TAG_PREFETCH_WINDOW*(SETS_PER_TAG_GROUP+1)))
 			{
-				under_review = 0;
+				under_review = -SETS_PER_TAG_GROUP;
 			}
 		}
 
