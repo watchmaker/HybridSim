@@ -1188,16 +1188,16 @@ namespace HybridSim {
 		}
 
 		// only prefetch going forward
-		uint64_t overall_offset = 0;
+		int64_t overall_offset = 0;
 		if(set_index_mod < ((SETS_PER_TAG_GROUP + 1) * EXTRA_SETS_FOR_ZERO_GROUP))
 		{
 			temp_set = temp_set + SETS_PER_TAG_GROUP + 1;
-			overall_offset = SETS_PER_TAG_GROUP + 1;
+			overall_offset = SETS_PER_TAG_GROUP + 1 - set_group_pos;
 		}
 		else
 		{
 			temp_set = temp_set + SETS_PER_TAG_GROUP;
-			overall_offset = SETS_PER_TAG_GROUP;
+			overall_offset = SETS_PER_TAG_GROUP - set_group_pos;
 		}
 	
 		
@@ -1275,7 +1275,7 @@ namespace HybridSim {
 				p.cache_addr = curr_tag_addr;
 				p.orig_addr = 0;
 				p.back_addr = temp_set; // use this to pass on the set index	
-				p.offset = overall_offset;
+				p.offset = overall_offset+SETS_PER_TAG_GROUP;
 				p.victim_tag = 0;
 				p.victim_valid = false;
 				p.callback_sent = false;
@@ -1742,7 +1742,7 @@ namespace HybridSim {
 					{
 						tags[i] = set_index_start+(i*NUM_CHANNELS);
 					}
-					tbuff.addTags(tags, false, set_index, 0); 				
+					tbuff.addTags(tags, false, set_index, (0-set_group_pos)+SETS_PER_TAG_GROUP); 				
 				}
 				else
 				{
@@ -1753,7 +1753,7 @@ namespace HybridSim {
 					{
 						tags[i] = set_index_start+(i*NUM_CHANNELS);
 					}
-					tbuff.addTags(tags, false, set_index, 0);						
+					tbuff.addTags(tags, false, set_index, (0-set_group_pos)+SETS_PER_TAG_GROUP);						
 				}
 			}
 			else
@@ -1770,7 +1770,7 @@ namespace HybridSim {
 					{
 						tags[i] = set_index_start+i;
 					}
-					tbuff.addTags(tags, false, set_index, 0);					
+					tbuff.addTags(tags, false, set_index, (0-set_group_pos)+SETS_PER_TAG_GROUP);					
 				}
 				else
 				{
@@ -1781,7 +1781,7 @@ namespace HybridSim {
 					{
 						tags[i] = set_index_start+i;
 					}
-					tbuff.addTags(tags, false, set_index, 0);						
+					tbuff.addTags(tags, false, set_index, (0-set_group_pos)+SETS_PER_TAG_GROUP);						
 				}
 			}
 			
