@@ -238,6 +238,8 @@ namespace HybridSim {
 		unique_stream_buffers = 0;
 		stream_buffer_hits = 0;
 
+		map_g = 0;
+
 		// Create file descriptors for debugging output (if needed).
 		if (DEBUG_VICTIM) 
 		{
@@ -772,12 +774,21 @@ namespace HybridSim {
 		if (hit)
 		{
 			// Lock the line that was hit (so it cannot be selected as a victim while being processed).
-		  contention_cache_line_lock(cache_address, set_index);
+			contention_cache_line_lock(cache_address, set_index);
 
 			if ((ENABLE_STREAM_BUFFER) && 
 					((trans.transactionType == DATA_READ) || (trans.transactionType == DATA_WRITE)))
 			{
 				stream_buffer_hit_handler(PAGE_ADDRESS(addr));
+			}
+
+			if (ENABLE_MAP && assocVersion == direct)
+			{
+				map_g++;
+				if( map_g > 7)
+				{
+					map_g = 7;
+				}
 			}
 
 			// Issue operation to the CACHE.
@@ -852,6 +863,18 @@ namespace HybridSim {
 				return;
 			}
 
+			if (ENABLE_MAP && assocVersion == direct)
+			{	
+				if( map_g > 0)
+				{
+					map_g--;
+				}
+				else
+				{
+					map_g = 0;
+				}
+			}
+
 			assert(trans.transactionType != SYNC);
 
 			if ((SEQUENTIAL_PREFETCHING_WINDOW > 0) && (trans.transactionType != PREFETCH))
@@ -901,6 +924,7 @@ namespace HybridSim {
 				unused_prefetches--;
 				unused_prefetch_victims++;
 			}
+
 
 			Pending p;
 			p.orig_addr = trans.address;
@@ -1108,8 +1132,33 @@ namespace HybridSim {
 				debug_set_addresses << "way 0  address is: " << cache_address << " (hex: " << hex << cache_address << dec << " )\n";
 			}
 			
-			contention_cache_line_lock(cache_address, set_index);
-			CacheRead(trans.address, addr, cache_address, trans, true);
+			// only use miss prediction on reads
+			// is map_g is less than 4 then we're missing a lot and we're just doing a backing store access
+			if(ENABLE_MAP && trans.transactionType == DATA_READ && map_g < 4)
+			{
+				// schedule the fill from the backing store
+				Pending p;
+				p.orig_addr = trans.address;
+				p.back_addr = addr;
+				p.cache_addr = cache_address;
+				p.victim_tag = cache[cache_address].tag;
+				p.victim_valid = cache[cache_address].valid;
+				p.callback_sent = false;
+				p.type = trans.transactionType;
+
+				LineRead(p);
+
+				// If the victim is dirty, then do a victim writeback process (starting with VictimRead).
+				if (cache[cache_address].dirty)
+				{
+					VictimRead(p);
+				}
+			}
+			else
+			{
+				contention_cache_line_lock(cache_address, set_index);
+				CacheRead(trans.address, addr, cache_address, trans, true);
+			}
 		}	
 	}
 
@@ -1527,6 +1576,36 @@ namespace HybridSim {
 		back_pending_wait.erase(page_addr);
 #endif
 
+		// if this is a predicted miss access, then check to see if we would have missed and update
+		// the miss map accordingly
+		if(ENABLE_MAP && assocVersion == direct && p.predicted)
+		{
+			// Compute the set number and tag
+			uint64_t set_index = SET_INDEX(addr);
+			uint64_t tag = TAG(addr);
+			uint64_t cache_address = (set_index) * PAGE_SIZE;
+				
+			if (cache[cache_address].valid && (cache[cache_address].tag == tag))
+			{
+				// would have been a hit so increment map_g
+				map_g++;
+				if( map_g > 7)
+				{
+					map_g = 7;
+				}
+			}
+			else
+			{
+				if( map_g > 0)
+				{
+					map_g--;
+				}
+				else
+				{
+					map_g = 0;
+				}
+			}
+		}
 
 		// Decrement the pending set counter (this is used to ensure that the pending set entry isn't removed until both LineRead
 		// and VictimRead (if needed) are completely done.

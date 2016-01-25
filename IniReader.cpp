@@ -72,6 +72,10 @@ uint64_t CACHE_PAGES = 1048576/4; // 1 GB
 string ASSOC_VERSION;
 AssocVersion assocVersion;
 
+// PaulMod: Miss Map Stuff
+uint64_t ENABLE_MAP;
+uint64_t MAP_SIZE;
+
 // PaulMod: Tag Buffer Stuff
 uint64_t NUM_TAG_WAYS;
 uint64_t NUM_TAG_SETS;
@@ -247,6 +251,10 @@ string NVDIMM_SAVE_FILE = "none";
 					assocVersion = tag_tlb;
 				}
 			}
+			else if (key.compare("ENABLE_MAP") == 0)
+				convert_uint64_t(ENABLE_MAP, value, key);
+			else if (key.compare("MAP_SIZE") == 0)
+				convert_uint64_t(MAP_SIZE, value, key);
 			else if (key.compare("NUM_TAG_WAYS") == 0)
 				convert_uint64_t(NUM_TAG_WAYS, value, key);
 			else if (key.compare("NUM_TAG_SETS") == 0)

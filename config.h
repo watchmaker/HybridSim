@@ -213,6 +213,10 @@ extern string ASSOC_VERSION;
 extern AssocVersion assocVersion;
 extern uint64_t ENABLE_TAG_WRITE; // simulates updating the tag store on a write
 
+// miss map stuff for direct mapped cache
+extern uint64_t ENABLE_MAP;
+extern uint64_t MAP_SIZE;
+
 // PaulMod: Tag Buffer Stuff
 extern uint64_t NUM_TAG_WAYS;
 extern uint64_t NUM_TAG_SETS;
@@ -387,6 +391,7 @@ class Pending
 	bool victim_valid;
 	bool callback_sent;
 	bool tag_buffer_miss; // this is used to tell use when to prefetch tags
+	bool predicted; // this is used to tell us when an operation was the result of a predicted miss
 	TransactionType type; // DATA_READ or DATA_WRITE
 
 	Pending() : op(VICTIM_READ), back_addr(0), cache_addr(0), victim_tag(0), offset(0), type(DATA_READ) {};

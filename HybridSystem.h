@@ -199,6 +199,9 @@ namespace HybridSim
 		uint64_t trans_queue_max;
 		uint64_t trans_queue_size;
 
+		// miss prediction for direct mapped cache
+		uint64_t map_g;
+
 		list<Transaction> trans_queue; // Entry queue for the cache controller.
 		list<Transaction> cache_queue; // Buffer to wait for cache
 		list<Transaction> back_queue; // Buffer to wait for back
